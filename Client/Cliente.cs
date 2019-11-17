@@ -69,9 +69,10 @@ namespace Client
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
-            //server.Register(cli.user, cURL, sURL);
 
-            Console.WriteLine("Cliente " + myUri.Port + " started");
+            server.Register(cURL);
+
+            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server);
 
 
             /*
@@ -154,7 +155,6 @@ namespace Client
         public void CreateProposal(String topic, int minParticipants, 
             string[] slots, string[] invitees)
         {
-
             Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
             
             if(output.Item1){

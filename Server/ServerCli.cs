@@ -13,9 +13,9 @@ namespace Server
         List<IClient> clientsList;
         //List<User> userList;
         int currMPId;
-        //SchedulingServer server;
+        SchedulingServer server;
 
-        public ServerCli()//SchedulingServer server)
+        public ServerCli(SchedulingServer server)
         {
             meetingProposals = new List<MeetingProposal>();
             meetingLocations = new List<MeetingLocation>();
@@ -27,13 +27,19 @@ namespace Server
             clientsList = new List<IClient>();
             //userList = new List<User>();
             currMPId = 0;
-            //this.server = server;
+            this.server = server;
         }
 
-        public void Register(string url, int port)
+        public void Register(string url)
         {
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
+            Console.WriteLine("User " + client.getUser().getName() + " registered.");
+        }
+
+        public String GetName()
+        {
+            return server.GetId();
         }
 
         public Tuple<Boolean, string> AddMeetingProposal(String topic, int minParticipants, 

@@ -60,7 +60,7 @@ namespace PuppetMaster
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Server\bin\Debug\Server.exe",
+                        FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Server\bin\Debug\Server",
                         Arguments = serverID + "'" + URL + "'" + maxFaults + "'" + minDelay + "'" + maxDelay,
 
                     }
@@ -109,7 +109,7 @@ namespace PuppetMaster
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Client\bin\Debug\Client.exe",
+                        FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Client\bin\Debug\Client",
                         Arguments = userName + "'" + cURL + "'" + sURL + "'" + script,
 
                     }

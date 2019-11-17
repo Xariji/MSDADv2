@@ -8,7 +8,7 @@ namespace Library
 {
     public interface ISchedulingServer
     {
-        void Register(string url, int port);
+        void Register(string url);
 
         Tuple<Boolean, string> AddMeetingProposal(String topic, int minParticipants,
             string[] slots, string[] invitees, string username);

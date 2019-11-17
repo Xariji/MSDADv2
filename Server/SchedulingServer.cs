@@ -35,7 +35,8 @@ namespace Server
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ServerCli mo = new ServerCli();// new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay));
+            SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
+            ServerCli mo = new ServerCli(server);
             RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
             Console.WriteLine("Server " + this.id +" started");
             System.Console.ReadLine();
@@ -60,7 +61,7 @@ namespace Server
 
             String id = vs[0];
             String URL = vs[1];
-            String maxFaults = vs[2];
+            int maxFaults = Int32.Parse(vs[2]);
             int minDelay = Int32.Parse(vs[3]);
             int maxDelay = Int32.Parse(vs[4]);
 
@@ -70,16 +71,17 @@ namespace Server
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ServerCli mo = new ServerCli();
+            SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
+            ServerCli mo = new ServerCli(server);
             RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
             Console.WriteLine("Server " + id + " started");
             System.Console.ReadLine();
 
         }
 
-        public void ConsoleWrite(String text)
+        public String GetId()
         {
-            Console.WriteLine(text);
+            return id;
         }
 
     }
