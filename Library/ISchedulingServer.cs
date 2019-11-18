@@ -28,5 +28,7 @@ namespace Library
         List<MeetingRoom> GetAvailableMeetingRooms();
       
         List<MeetingLocation> GetAvailableMeetingLocations();
+
+        String GetServerId();
     }
 }

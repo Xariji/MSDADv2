@@ -20,6 +20,7 @@ namespace PuppetMaster
     {
         List<String> urlServers = new List<String>();
         List<String> urlClients = new List<String>();
+        String scriptPath = "";
         public PMForm()
         {
             InitializeComponent();
@@ -84,7 +85,6 @@ namespace PuppetMaster
             String userName = username.Text;
             String cURL = clientURL.Text;
             String sURL = serverURL.Text;
-            String script = scriptFile.Text;
 
             //we need the URL to know in which machine is it
             // If it's not on the same machine as the PuppetMaster we need to check the PCS
@@ -104,16 +104,32 @@ namespace PuppetMaster
             {
                 //Cliente cc = new Cliente(userName, cURL, sURL, script);
                 //cc.start();
-
-                var process = new Process
+                Process process;
+                if(scriptPath != "")
                 {
-                    StartInfo = new ProcessStartInfo
+                    process = new Process
                     {
-                        FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Client\bin\Debug\Client",
-                        Arguments = userName + "'" + cURL + "'" + sURL + "'" + script,
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Client\bin\Debug\Client",
+                            Arguments = userName + "'" + cURL + "'" + sURL + " " + scriptPath,
 
-                    }
-                };
+                        }
+                    };
+                }
+                else
+                {
+                    process = new Process
+                    {
+                        StartInfo = new ProcessStartInfo
+                        {
+                            FileName = Directory.GetCurrentDirectory() + @"..\..\..\..\Client\bin\Debug\Client",
+                            Arguments = userName + "'" + cURL + "'" + sURL,
+
+                        }
+                    };
+                }
+                
 
                 process.Start();
                 String name = process.ProcessName; // we save the process and the name
@@ -125,6 +141,21 @@ namespace PuppetMaster
             }
 
             urlClients.Add(cURL);
+        }
+
+        private void selectScript_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog();
+            DialogResult result = openFileDialog.ShowDialog(); // Show the dialog.
+            if (result == DialogResult.OK)
+            {
+                scriptPath = openFileDialog.FileName;
+                selectScript.Text = openFileDialog.FileName.Split('\\').Last();
+            } else if (result == DialogResult.Cancel)
+            {
+                scriptPath = "";
+                selectScript.Text = "Select script";
+            }
         }
     }
 }

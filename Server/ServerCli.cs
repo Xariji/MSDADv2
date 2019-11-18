@@ -376,5 +376,10 @@ namespace Server
             }
             return null;
         }
+
+        public String GetServerId()
+        {
+            return server.GetId();
+        }
     }
 }

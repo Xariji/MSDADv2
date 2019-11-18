@@ -52,7 +52,6 @@
             this.label10 = new System.Windows.Forms.Label();
             this.clientURL = new System.Windows.Forms.TextBox();
             this.serverURL = new System.Windows.Forms.TextBox();
-            this.scriptFile = new System.Windows.Forms.TextBox();
             this.addClient = new System.Windows.Forms.Button();
             this.username = new System.Windows.Forms.TextBox();
             this.label5 = new System.Windows.Forms.Label();
@@ -68,6 +67,7 @@
             this.addServerId = new System.Windows.Forms.TextBox();
             this.richTextBox1 = new System.Windows.Forms.RichTextBox();
             this.vScrollBar1 = new System.Windows.Forms.VScrollBar();
+            this.selectScript = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // TerminateAll
@@ -294,14 +294,6 @@
             this.serverURL.Size = new System.Drawing.Size(148, 26);
             this.serverURL.TabIndex = 8;
             // 
-            // scriptFile
-            // 
-            this.scriptFile.Location = new System.Drawing.Point(741, 166);
-            this.scriptFile.Margin = new System.Windows.Forms.Padding(4, 5, 4, 5);
-            this.scriptFile.Name = "scriptFile";
-            this.scriptFile.Size = new System.Drawing.Size(148, 26);
-            this.scriptFile.TabIndex = 9;
-            // 
             // addClient
             // 
             this.addClient.Location = new System.Drawing.Point(24, 161);
@@ -437,11 +429,22 @@
             this.vScrollBar1.Size = new System.Drawing.Size(26, 301);
             this.vScrollBar1.TabIndex = 24;
             // 
+            // selectScript
+            // 
+            this.selectScript.Location = new System.Drawing.Point(741, 162);
+            this.selectScript.Name = "selectScript";
+            this.selectScript.Size = new System.Drawing.Size(148, 35);
+            this.selectScript.TabIndex = 40;
+            this.selectScript.Text = "Select script";
+            this.selectScript.UseVisualStyleBackColor = true;
+            this.selectScript.Click += new System.EventHandler(this.selectScript_Click);
+            // 
             // PMForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1110, 631);
+            this.Controls.Add(this.selectScript);
             this.Controls.Add(this.vScrollBar1);
             this.Controls.Add(this.richTextBox1);
             this.Controls.Add(this.TerminateAll);
@@ -468,7 +471,6 @@
             this.Controls.Add(this.label10);
             this.Controls.Add(this.clientURL);
             this.Controls.Add(this.serverURL);
-            this.Controls.Add(this.scriptFile);
             this.Controls.Add(this.addClient);
             this.Controls.Add(this.username);
             this.Controls.Add(this.label5);
@@ -515,7 +517,6 @@
         private System.Windows.Forms.Label label10;
         private System.Windows.Forms.TextBox clientURL;
         private System.Windows.Forms.TextBox serverURL;
-        private System.Windows.Forms.TextBox scriptFile;
         private System.Windows.Forms.Button addClient;
         private System.Windows.Forms.TextBox username;
         private System.Windows.Forms.Label label5;
@@ -531,6 +532,7 @@
         private System.Windows.Forms.TextBox addServerId;
         private System.Windows.Forms.RichTextBox richTextBox1;
         private System.Windows.Forms.VScrollBar vScrollBar1;
+        private System.Windows.Forms.Button selectScript;
     }
 }
 

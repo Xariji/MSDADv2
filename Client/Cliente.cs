@@ -13,7 +13,7 @@ namespace Client
 
         private static ISchedulingServer server;
 
-        private User user;
+        private String username;
         private String cURL;
         private String sURL;
         private String script;
@@ -22,7 +22,7 @@ namespace Client
 
         public Cliente(String username, String cURL, String sURL, String script)
         {
-            this.user = new User(username);
+            this.username = username;
             this.cURL = cURL;
             this.sURL = sURL;
             this.script = script;
@@ -37,7 +37,7 @@ namespace Client
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ClientServ cs = new ClientServ(this.user);
+            ClientServ cs = new ClientServ(new User(username));
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
@@ -57,7 +57,11 @@ namespace Client
             String username = vs[0];
             String cURL = vs[1];
             String sURL = vs[2];
-            String script = vs[3];
+            String script = "";
+            if(args[1] != null)
+            {
+                script = args[1];
+            }
 
             cli = new Cliente(username, cURL, sURL, script);
             Uri myUri = new Uri(cURL);
@@ -65,14 +69,14 @@ namespace Client
             channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ClientServ cs = new ClientServ(cli.user);
+            ClientServ cs = new ClientServ(new User(cli.username));
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
             server.Register(cURL);
 
-            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server);
+            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId());
 
 
             /*
@@ -90,7 +94,7 @@ namespace Client
                 //identify if normal Cliente
             */
 
-            if (args.Length == 1)
+            if (args.Length == 1 || args.Length == 2)
             {
                 Boolean run = true;
                 Console.WriteLine("Hello, " + cli.GetName() + ". Welcome to MSDAD");
@@ -100,6 +104,20 @@ namespace Client
                 Console.WriteLine("Type close <meetingTopic> to close the specific meeting proposal");
                 Console.WriteLine("Type wait <time in milliseconds> to let the Cliente wait");
                 Console.WriteLine("Type quit to exit");
+
+                //if script client
+                if (args.Length == 2)
+                {
+                    script = System.IO.File.ReadAllText(args[1]);
+                    string[] commandList = script.Split(
+                        new[] { Environment.NewLine },
+                        StringSplitOptions.None);
+                    foreach (string command in commandList)
+                    {
+                        cli.ProcessConsoleLine(command);
+                    }
+                }
+
                 while (run)
                 {
                     Console.Write("Insert command: ");
@@ -114,18 +132,6 @@ namespace Client
                         cli.ProcessConsoleLine(command);
                     }
                 }
-                //or Cliente-script
-            }
-            else if (args.Length == 2)
-            {
-                script = System.IO.File.ReadAllText(args[1]);
-                string[] commandList = script.Split(
-                    new[] { Environment.NewLine },
-                    StringSplitOptions.None);
-                foreach (string command in commandList)
-                {
-                    cli.ProcessConsoleLine(command);
-                }
             }
             else
             {
@@ -137,7 +143,7 @@ namespace Client
 
         public String GetName()
         {
-            return user.getName();
+            return username;
         }
 
         /**
