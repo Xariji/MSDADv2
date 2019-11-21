@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.Remoting;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting.Channels.Tcp;
+using System.Runtime.Remoting.Channels.Http;
 using Library;
 
 namespace Server
@@ -74,11 +75,14 @@ namespace Server
 
             SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
             ServerCli mo = new ServerCli(server);
+            RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
+
+            HttpChannel channel1 = new HttpChannel(myUri.Port+1000);
+            ChannelServices.RegisterChannel(channel1, false);
 
             PuppetServer ps = new PuppetServer(mo); //testing this
             RemotingServices.Marshal(ps, "ps", typeof(PuppetServer)); // testing this
 
-            RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
             Console.WriteLine("Server " + id + " started");
             System.Console.ReadLine();
 

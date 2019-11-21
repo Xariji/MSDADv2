@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Server
 {
-    class PuppetServer : MarshalByRefObject
+    public class PuppetServer : MarshalByRefObject
     {
         ServerCli sc;
 
@@ -17,11 +17,12 @@ namespace Server
 
         public void freeze()
         {
-
+            Console.WriteLine("hey this is ps");
         }
 
         public void unfreeze()
         {
+            Console.WriteLine("hey this is ps unfroze");
 
         }
 

@@ -58,6 +58,7 @@ namespace Client
             String cURL = vs[1];
             String sURL = vs[2];
             String script = "";
+
             if(args.Length > 1)
             {
                 script = args[1];

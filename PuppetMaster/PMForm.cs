@@ -165,10 +165,48 @@ namespace PuppetMaster
             }
         }
 
-        // 
+        // This method is used to crash a server 
+
         private void button5_Click(object sender, EventArgs e)
         {
+            String serverID = crashID.Text;
 
+            sProcesses.TryGetValue(serverID, out Process pr);
+
+            pr.Kill();
+
+            sProcesses.Remove(serverID);
+            urlServers.Remove(serverID);
+
+
+        }
+        private void Freeze_Click(object sender, EventArgs e)
+        {
+            String servID = freezeID.Text;
+            urlServers.TryGetValue(servID, out String url);
+
+            Uri myUri = new Uri(url);
+
+            String psURLHost = myUri.Host;
+            int psURLPort = myUri.Port + 1000;
+
+            PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+            ps.freeze();
+
+        }
+
+        private void Unfreeze_Click(object sender, EventArgs e)
+        {
+            String servID = unfreezeID.Text;
+            urlServers.TryGetValue(servID, out String url);
+
+            Uri myUri = new Uri(url);
+
+            String psURLHost = myUri.Host;
+            int psURLPort = myUri.Port + 1000;
+
+            PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+            ps.unfreeze();
         }
     }
 }

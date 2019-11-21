@@ -44,6 +44,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="PuppetServer.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="PuppetServer.cs" />
     <Compile Include="SchedulingServer.cs" />
