@@ -73,6 +73,10 @@ namespace Server
 
             SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
             ServerCli mo = new ServerCli(server);
+
+            PuppetServer ps = new PuppetServer(mo); //testing this
+            RemotingServices.Marshal(mo, "ps", typeof(PuppetServer)); // testing this
+
             RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
             Console.WriteLine("Server " + id + " started");
             System.Console.ReadLine();

@@ -18,9 +18,16 @@ namespace PuppetMaster
 {
     public partial class PMForm : Form
     {
-        List<String> urlServers = new List<String>();
-        List<String> urlClients = new List<String>();
+
+        Dictionary<String, String> urlServers = new Dictionary<string, string>();
+
+        Dictionary<String, String> urlClients = new Dictionary<string, string>();
+
+        Dictionary<String, Process> sProcesses = new Dictionary<string, Process>();
+
+
         String scriptPath = "";
+
         public PMForm()
         {
             InitializeComponent();
@@ -69,14 +76,15 @@ namespace PuppetMaster
 
                 process.Start();
                 String name = process.ProcessName; // we save the process and the name
+                sProcesses.Add(serverID, process);
             }
             else
             {
-                //pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
+                // pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
                 // pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
             }
 
-            urlServers.Add(URL);
+            urlServers.Add(serverID, URL);
 
         }
 
@@ -132,7 +140,8 @@ namespace PuppetMaster
                 
 
                 process.Start();
-                String name = process.ProcessName; // we save the process and the name
+
+
             }
             else
             {
@@ -140,7 +149,7 @@ namespace PuppetMaster
                 //pCs.createClientProcess(userName, cURL, sURL, script);
             }
 
-            urlClients.Add(cURL);
+            urlClients.Add(userName, cURL);
         }
 
         private void selectScript_Click(object sender, EventArgs e)
@@ -156,6 +165,12 @@ namespace PuppetMaster
                 scriptPath = "";
                 selectScript.Text = "Select script";
             }
+        }
+
+        // 
+        private void button5_Click(object sender, EventArgs e)
+        {
+
         }
     }
 }
