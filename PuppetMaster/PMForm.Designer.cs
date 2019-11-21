@@ -30,14 +30,14 @@
         {
             this.TerminateAll = new System.Windows.Forms.Button();
             this.label15 = new System.Windows.Forms.Label();
-            this.textBox15 = new System.Windows.Forms.TextBox();
-            this.button7 = new System.Windows.Forms.Button();
+            this.unfreezeID = new System.Windows.Forms.TextBox();
+            this.Unfreeze = new System.Windows.Forms.Button();
             this.label14 = new System.Windows.Forms.Label();
-            this.textBox14 = new System.Windows.Forms.TextBox();
-            this.button4 = new System.Windows.Forms.Button();
+            this.freezeID = new System.Windows.Forms.TextBox();
+            this.Freeze = new System.Windows.Forms.Button();
             this.label13 = new System.Windows.Forms.Label();
-            this.textBox13 = new System.Windows.Forms.TextBox();
-            this.button5 = new System.Windows.Forms.Button();
+            this.crashID = new System.Windows.Forms.TextBox();
+            this.Crash = new System.Windows.Forms.Button();
             this.button6 = new System.Windows.Forms.Button();
             this.label12 = new System.Windows.Forms.Label();
             this.textBox12 = new System.Windows.Forms.TextBox();
@@ -88,21 +88,22 @@
             this.label15.TabIndex = 39;
             this.label15.Text = "Server ID";
             // 
-            // textBox15
+            // unfreezeID
             // 
-            this.textBox15.Location = new System.Drawing.Point(599, 298);
-            this.textBox15.Name = "textBox15";
-            this.textBox15.Size = new System.Drawing.Size(100, 20);
-            this.textBox15.TabIndex = 19;
+            this.unfreezeID.Location = new System.Drawing.Point(599, 298);
+            this.unfreezeID.Name = "unfreezeID";
+            this.unfreezeID.Size = new System.Drawing.Size(100, 20);
+            this.unfreezeID.TabIndex = 19;
             // 
-            // button7
+            // Unfreeze
             // 
-            this.button7.Location = new System.Drawing.Point(435, 294);
-            this.button7.Name = "button7";
-            this.button7.Size = new System.Drawing.Size(134, 23);
-            this.button7.TabIndex = 20;
-            this.button7.Text = "Unfreeze Server";
-            this.button7.UseVisualStyleBackColor = true;
+            this.Unfreeze.Location = new System.Drawing.Point(435, 294);
+            this.Unfreeze.Name = "Unfreeze";
+            this.Unfreeze.Size = new System.Drawing.Size(134, 23);
+            this.Unfreeze.TabIndex = 20;
+            this.Unfreeze.Text = "Unfreeze Server";
+            this.Unfreeze.UseVisualStyleBackColor = true;
+            this.Unfreeze.Click += new System.EventHandler(this.Unfreeze_Click);
             // 
             // label14
             // 
@@ -113,21 +114,22 @@
             this.label14.TabIndex = 38;
             this.label14.Text = "Server ID";
             // 
-            // textBox14
+            // freezeID
             // 
-            this.textBox14.Location = new System.Drawing.Point(599, 253);
-            this.textBox14.Name = "textBox14";
-            this.textBox14.Size = new System.Drawing.Size(100, 20);
-            this.textBox14.TabIndex = 17;
+            this.freezeID.Location = new System.Drawing.Point(599, 253);
+            this.freezeID.Name = "freezeID";
+            this.freezeID.Size = new System.Drawing.Size(100, 20);
+            this.freezeID.TabIndex = 17;
             // 
-            // button4
+            // Freeze
             // 
-            this.button4.Location = new System.Drawing.Point(435, 251);
-            this.button4.Name = "button4";
-            this.button4.Size = new System.Drawing.Size(134, 23);
-            this.button4.TabIndex = 18;
-            this.button4.Text = "Freeze Server";
-            this.button4.UseVisualStyleBackColor = true;
+            this.Freeze.Location = new System.Drawing.Point(435, 251);
+            this.Freeze.Name = "Freeze";
+            this.Freeze.Size = new System.Drawing.Size(134, 23);
+            this.Freeze.TabIndex = 18;
+            this.Freeze.Text = "Freeze Server";
+            this.Freeze.UseVisualStyleBackColor = true;
+            this.Freeze.Click += new System.EventHandler(this.Freeze_Click);
             // 
             // label13
             // 
@@ -138,22 +140,22 @@
             this.label13.TabIndex = 37;
             this.label13.Text = "Server ID";
             // 
-            // textBox13
+            // crashID
             // 
-            this.textBox13.Location = new System.Drawing.Point(599, 210);
-            this.textBox13.Name = "textBox13";
-            this.textBox13.Size = new System.Drawing.Size(100, 20);
-            this.textBox13.TabIndex = 15;
+            this.crashID.Location = new System.Drawing.Point(599, 210);
+            this.crashID.Name = "crashID";
+            this.crashID.Size = new System.Drawing.Size(100, 20);
+            this.crashID.TabIndex = 15;
             // 
-            // button5
+            // Crash
             // 
-            this.button5.Location = new System.Drawing.Point(435, 207);
-            this.button5.Name = "button5";
-            this.button5.Size = new System.Drawing.Size(134, 23);
-            this.button5.TabIndex = 16;
-            this.button5.Text = "Crash Server";
-            this.button5.UseVisualStyleBackColor = true;
-            this.button5.Click += new System.EventHandler(this.button5_Click);
+            this.Crash.Location = new System.Drawing.Point(435, 207);
+            this.Crash.Name = "Crash";
+            this.Crash.Size = new System.Drawing.Size(134, 23);
+            this.Crash.TabIndex = 16;
+            this.Crash.Text = "Crash Server";
+            this.Crash.UseVisualStyleBackColor = true;
+            this.Crash.Click += new System.EventHandler(this.button5_Click);
             // 
             // button6
             // 
@@ -415,14 +417,14 @@
             this.Controls.Add(this.richTextBox1);
             this.Controls.Add(this.TerminateAll);
             this.Controls.Add(this.label15);
-            this.Controls.Add(this.textBox15);
-            this.Controls.Add(this.button7);
+            this.Controls.Add(this.unfreezeID);
+            this.Controls.Add(this.Unfreeze);
             this.Controls.Add(this.label14);
-            this.Controls.Add(this.textBox14);
-            this.Controls.Add(this.button4);
+            this.Controls.Add(this.freezeID);
+            this.Controls.Add(this.Freeze);
             this.Controls.Add(this.label13);
-            this.Controls.Add(this.textBox13);
-            this.Controls.Add(this.button5);
+            this.Controls.Add(this.crashID);
+            this.Controls.Add(this.Crash);
             this.Controls.Add(this.button6);
             this.Controls.Add(this.label12);
             this.Controls.Add(this.textBox12);
@@ -462,14 +464,14 @@
 
         private System.Windows.Forms.Button TerminateAll;
         private System.Windows.Forms.Label label15;
-        private System.Windows.Forms.TextBox textBox15;
-        private System.Windows.Forms.Button button7;
+        private System.Windows.Forms.TextBox unfreezeID;
+        private System.Windows.Forms.Button Unfreeze;
         private System.Windows.Forms.Label label14;
-        private System.Windows.Forms.TextBox textBox14;
-        private System.Windows.Forms.Button button4;
+        private System.Windows.Forms.TextBox freezeID;
+        private System.Windows.Forms.Button Freeze;
         private System.Windows.Forms.Label label13;
-        private System.Windows.Forms.TextBox textBox13;
-        private System.Windows.Forms.Button button5;
+        private System.Windows.Forms.TextBox crashID;
+        private System.Windows.Forms.Button Crash;
         private System.Windows.Forms.Button button6;
         private System.Windows.Forms.Label label12;
         private System.Windows.Forms.TextBox textBox12;

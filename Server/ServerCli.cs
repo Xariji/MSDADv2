@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace Server
 {
-    class ServerCli : MarshalByRefObject, ISchedulingServer
+    public class ServerCli : MarshalByRefObject, ISchedulingServer
     {
 
         List<MeetingProposal> meetingProposals;
@@ -382,4 +382,6 @@ namespace Server
             return server.GetId();
         }
     }
+
+ 
 }
