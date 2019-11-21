@@ -35,5 +35,10 @@ namespace Server
         {
 
         }
+
+        public Dictionary<string, string> fetchView()
+        {
+            return null;
+        }
     }
 }

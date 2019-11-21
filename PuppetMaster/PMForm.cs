@@ -63,7 +63,7 @@ namespace PuppetMaster
 
                 //SchedulingServer ss = new SchedulingServer(serverID, URL, maxFaults, minDelay, maxDelay);
                 //ss.start();             
-
+                
                 var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -83,9 +83,7 @@ namespace PuppetMaster
                 // pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
                 // pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
             }
-
             urlServers.Add(serverID, URL);
-
         }
 
         private void addClient_Click(object sender, EventArgs e)

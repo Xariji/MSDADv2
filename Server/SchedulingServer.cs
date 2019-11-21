@@ -17,6 +17,7 @@ namespace Server
         int maxFaults;
         int minDelay;
         int maxDelay;
+        Dictionary<String, String> ViewServers;
 
         public SchedulingServer(String id, String URL, int maxFaults, int minDelay, int maxDelay)
         {
@@ -75,7 +76,7 @@ namespace Server
             ServerCli mo = new ServerCli(server);
 
             PuppetServer ps = new PuppetServer(mo); //testing this
-            RemotingServices.Marshal(mo, "ps", typeof(PuppetServer)); // testing this
+            RemotingServices.Marshal(ps, "ps", typeof(PuppetServer)); // testing this
 
             RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
             Console.WriteLine("Server " + id + " started");
