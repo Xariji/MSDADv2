@@ -20,5 +20,9 @@ namespace Library
         User getUser();
 
         void setUser(User u);
+
+        String getBackupServerURL();
+
+        void setBackupServerURL(String url);
     }
 }

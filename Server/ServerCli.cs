@@ -30,11 +30,12 @@ namespace Server
             this.server = server;
         }
 
-        public void Register(string url)
+        public String Register(string url)
         {
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
             Console.WriteLine("User " + client.getUser().getName() + " registered.");
+            return server.getBackupServer();
         }
 
         public String GetName()
@@ -381,6 +382,24 @@ namespace Server
         {
             return server.GetId();
         }
+
+        public void addServerToView(String serverid, String serverurl)
+        {
+            lock (server)
+            {
+                server.updateView("add", serverid, serverurl);
+                //TO-DO: Send update command to backup server
+                Console.WriteLine("Backup-URL: " + server.getBackupServer());
+                ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer());
+                bscli.addServerToView(serverid, serverurl);
+                //send command to update backup server to clients
+                foreach (IClient client in clientsList)
+                {
+                    client.setBackupServerURL(server.getBackupServer());
+                }
+            }  
+        }
+
     }
 
  

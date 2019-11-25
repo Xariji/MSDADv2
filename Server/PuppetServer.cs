@@ -37,9 +37,9 @@ namespace Server
 
         }
 
-        public Dictionary<string, string> fetchView()
+        public void addServerToView(String serverid, String serverurl)
         {
-            return null;
+            sc.addServerToView(serverid, serverurl);
         }
     }
 }

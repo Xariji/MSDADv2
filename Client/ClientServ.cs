@@ -9,11 +9,13 @@ namespace Client
 {
     class ClientServ : MarshalByRefObject, IClient
     {
+        Cliente client;
         User user;
 
-        public ClientServ(User arg)
+        public ClientServ(Cliente arg)
         {
-            this.user = arg;
+            this.client = arg;
+            this.user = new User(arg.GetName());
         }
 
         public User getUser()
@@ -25,5 +27,15 @@ namespace Client
         {
             this.user = u;
         }
+
+        public String getBackupServerURL()
+        {
+            return client.getBackupServerURL();
+        }
+        public void setBackupServerURL(String url)
+        {
+            client.setBackupServerURL(url);
+        }
+
     }
 }

@@ -18,7 +18,7 @@ namespace Server
         int maxFaults;
         int minDelay;
         int maxDelay;
-        Dictionary<String, String> ViewServers;
+        SortedList<String, String> view;
 
         public SchedulingServer(String id, String URL, int maxFaults, int minDelay, int maxDelay)
         {
@@ -91,6 +91,39 @@ namespace Server
         public String GetId()
         {
             return id;
+        }
+
+        public String getBackupServer()
+        {
+            if(view.IndexOfKey(id) < view.Count - 1)
+            {
+                return view.Values[view.IndexOfKey(id) + 1];
+            } else
+            {
+                return view.Values[0];
+            }
+            
+        }
+
+        public SortedList<String, String> getView()
+        {
+            return view;
+        }
+
+        public void updateView(String action, String serverid, String serverurl)
+        {
+            lock (view)
+            {
+                switch (action)
+                {
+                    case "add":
+                        view.Add(serverid, serverurl);
+                        break;
+                    case "remove":
+                        view.Remove(serverid);
+                        break;
+                }
+            }
         }
 
     }

@@ -84,6 +84,11 @@ namespace PuppetMaster
                 // pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
             }
             urlServers.Add(serverID, URL);
+
+            String psURLHost = myUri.Host;
+            int psURLPort = myUri.Port + 1000;
+            PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+            ps.addServerToView(serverID, URL);
         }
 
         private void addClient_Click(object sender, EventArgs e)
