@@ -17,6 +17,7 @@ namespace Client
         private String cURL;
         private String sURL;
         private String script;
+        private String[] sURLBackup;
 
         //Usage: put as args: <username> <scriptPath>
 
@@ -37,7 +38,7 @@ namespace Client
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ClientServ cs = new ClientServ(new User(username));
+            ClientServ cs = new ClientServ(this);
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
@@ -58,6 +59,7 @@ namespace Client
             String cURL = vs[1];
             String sURL = vs[2];
             String script = "";
+            String[] sURLBackup;
 
             if(args.Length > 1)
             {
@@ -70,16 +72,23 @@ namespace Client
             channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ClientServ cs = new ClientServ(new User(cli.username));
+            ClientServ cs = new ClientServ(cli);
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
-            List<string> arg = new List<string>();
+             List<string> arg = new List<string>();
             arg.Add(cURL);
             Message mess = server.Response("Register", arg);
 
-            Console.WriteLine(mess.getMessage());
+            Console.WriteLine(mess.getMessage());  
+             //sURLBackup = server.Register(cURL);
+            //String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).GetServerId();
+            //for(int i=1; i<sURLBackup.Length; i++)
+            //{
+            //    backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).GetServerId();
+            //}
+ 
 
             //Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId());
 
@@ -229,7 +238,19 @@ namespace Client
             }
         }
 
-        private void ProcessConsoleLine(string line)
+ 
+
+        public String[] getBackupServerURL()
+        {
+            return sURLBackup;
+        }
+
+        public void setBackupServerURL(String[] urls)
+        {
+            sURLBackup = urls;
+        }
+
+         private void ProcessConsoleLine(string line)
         {
             string[] commandArgs = line.Split(
                    new[] { " " },
