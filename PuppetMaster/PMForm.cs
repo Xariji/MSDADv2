@@ -83,11 +83,15 @@ namespace PuppetMaster
                 // pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
                 // pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
             }
-            urlServers.Add(serverID, URL);
-
             String psURLHost = myUri.Host;
             int psURLPort = myUri.Port + 1000;
+            Console.WriteLine("serverID: " + serverID + " URL: " + URL);
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+            foreach(KeyValuePair<String, String> server in urlServers)
+            {
+                ps.initializeView(server.Key, server.Value);
+            }
+            urlServers.Add(serverID, URL);
             ps.addServerToView(serverID, URL);
         }
 

@@ -28,13 +28,13 @@ namespace Client
             this.user = u;
         }
 
-        public String getBackupServerURL()
+        public String[] getBackupServerURL()
         {
             return client.getBackupServerURL();
         }
-        public void setBackupServerURL(String url)
+        public void setBackupServerURL(String[] urls)
         {
-            client.setBackupServerURL(url);
+            client.setBackupServerURL(urls);
         }
 
     }

@@ -21,8 +21,8 @@ namespace Library
 
         void setUser(User u);
 
-        String getBackupServerURL();
+        String[] getBackupServerURL();
 
-        void setBackupServerURL(String url);
+        void setBackupServerURL(String[] urls);
     }
 }

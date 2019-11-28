@@ -17,7 +17,7 @@ namespace Client
         private String cURL;
         private String sURL;
         private String script;
-        private String sURLBackup;
+        private String[] sURLBackup;
 
         //Usage: put as args: <username> <scriptPath>
 
@@ -59,7 +59,7 @@ namespace Client
             String cURL = vs[1];
             String sURL = vs[2];
             String script = "";
-            String sURLBackup = "";
+            String[] sURLBackup;
 
             if(args.Length > 1)
             {
@@ -78,8 +78,12 @@ namespace Client
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
             sURLBackup = server.Register(cURL);
-
-            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId() + "(Backup: " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup)).GetServerId() + ")");
+            String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).GetServerId();
+            for(int i=1; i<sURLBackup.Length; i++)
+            {
+                backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).GetServerId();
+            }
+            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId() + "(Initial: Backup: " + backupInfo + ")");
 
 
             /*
@@ -246,14 +250,14 @@ namespace Client
             server.AddMeetingRoom(location, room, capacity);
         }
 
-        public String getBackupServerURL()
+        public String[] getBackupServerURL()
         {
             return sURLBackup;
         }
 
-        public void setBackupServerURL(String url)
+        public void setBackupServerURL(String[] urls)
         {
-            sURLBackup = url;
+            sURLBackup = urls;
         }
 
         private void ProcessConsoleLine(string line)

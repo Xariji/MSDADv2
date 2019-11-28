@@ -32,9 +32,9 @@ namespace Server
         }
 
 
-        public void addServer(String server)
+        public void initializeView(String serverid, String serverurl)
         {
-
+            sc.initializeView(serverid, serverurl);
         }
 
         public void addServerToView(String serverid, String serverurl)

@@ -27,6 +27,7 @@ namespace Server
             this.maxFaults = maxFaults;
             this.minDelay = minDelay;
             this.maxDelay = maxDelay;
+            this.view = new SortedList<String, String>();
         }
 
         public void start() {
@@ -93,15 +94,34 @@ namespace Server
             return id;
         }
 
-        public String getBackupServer()
+        public String getURL()
         {
-            if(view.IndexOfKey(id) < view.Count - 1)
+            return URL;
+        }
+
+        public String[] getBackupServer()
+        {
+            if(view.Count < 3)
             {
-                return view.Values[view.IndexOfKey(id) + 1];
-            } else
-            {
-                return view.Values[0];
+                if (view.IndexOfKey(id) < view.Count - 1)
+                {
+                    return new String[]{view.Values[view.IndexOfKey(id) + 1]};
+                }
+                else
+                {
+                    return new String[]{view.Values[0]};
+                }
             }
+            else
+            {
+                String[] result = new String[view.Count / 2 + 1];
+                for (int i = 0; i < result.Length; i++)
+                {
+                    result[i] = view.Values[((view.IndexOfKey(id) + i + 1) % view.Count + view.Count) % view.Count];
+                }
+                return result;
+            }
+            
             
         }
 
