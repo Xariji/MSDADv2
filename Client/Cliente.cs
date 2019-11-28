@@ -75,25 +75,14 @@ namespace Client
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
-            server.Register(cURL);
+            List<string> arg = new List<string>();
+            arg.Add(cURL);
+            Message mess = server.Response("Register", arg);
 
-            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId());
+            Console.WriteLine(mess.getMessage());
 
+            //Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId());
 
-            /*
-                cli = new Cliente(args[0], "", "", "");
-                //connection to the server
-                ClientServ Clientserv = new ClientServ(cli.user);
-                string url = "tcp://localhost:8000/CC";
-                channel = new TcpChannel(8000);
-                ChannelServices.RegisterChannel(channel, false);
-                RemotingServices.Marshal(Clientserv, "CC", typeof(IClient));
-
-                server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), "tcp://localhost:8888/mcm");
-                server.Register(cli.user, url, 8888);
-
-                //identify if normal Cliente
-            */
 
             if (args.Length == 1 || args.Length == 2)
             {
@@ -152,8 +141,8 @@ namespace Client
          */
         public List<MeetingProposal> ListProposals()
         {
-            //I think we should return all MP's where a user could join -> return this.user.getMyMP() + this.user.getActiveMP(); //this doesn't work coz its static...
-            return server.getJoinableMP(GetName());
+            return null; // Not working now, we just need to know the proposals we created like locally and the other
+                         // that others users tell us
         }
          
         /**
@@ -162,14 +151,24 @@ namespace Client
         public void CreateProposal(String topic, int minParticipants, 
             string[] slots, string[] invitees)
         {
-            Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
-            
-            if(output.Item1){
+            //Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
+
+            List<string> args = new List<string>();
+            args.Add(topic);
+            args.Add(minParticipants.ToString());
+            args.Add(slots.ToString());
+            args.Add(invitees.ToString());
+            args.Add(GetName());
+
+
+
+            Message output = server.Response("AddMeetingProposal", args);
+            if(output.getSucess()){
                 Console.WriteLine("Proposal created with success");
             }
             else
             {
-                Console.WriteLine(output.Item2);
+                Console.WriteLine(output.getMessage());
             }
             //ShareProposal(mp);
         }
@@ -183,37 +182,27 @@ namespace Client
 
         public void Participate(String meetingTopic, string[] slots)
         {
-            // we will have to signal the server our intent to participate in this meeting
-            // should we keep a record on the meetings we are participating in ?
-            List<Slot> slotsList = new List<Slot>();
-            foreach (string slotUnformat in slots)
+
+            if (slots == null)
             {
-                string[] slotFormat = slotUnformat.Split(
-                   new[] { ";" },
-                   StringSplitOptions.None);
-                MeetingLocation meetingLocation = null;
-                foreach (MeetingLocation ml in server.GetAvailableMeetingLocations())
-                {
-                    if (ml.getName() == slotFormat[0])
-                    {
-                        meetingLocation = ml;
-                        slotsList.Add(new Slot(meetingLocation, slotFormat[1]));
-                    }
-                }
-                if (slotsList.Count == 0)
-                {
-                    Console.WriteLine("Join of Meeting Proposal declined. Invalid location.");
-                    return;
-                }
-                
+                Console.WriteLine("No slots input");
+                return;
             }
-            Tuple<Boolean, int> output = server.AddUserToProposal(meetingTopic, GetName(), slotsList);
-            if (output.Item1)
+
+            //Tuple<Boolean, int> output = server.AddUserToProposal(meetingTopic, GetName(), slots);
+
+            List<string> args = new List<string>();
+            args.Add(meetingTopic);
+            args.Add(slots.ToString());
+            args.Add(GetName());
+            Message output = server.Response("AddUserToProposal", args);
+
+            if (output.getSucess())
             {
                 Console.WriteLine("Meeting " + meetingTopic + " joined successfully.");
             } else
             {
-                switch (output.Item2)
+                switch (output.getObj())
                 {
                     case 0:
                         Console.WriteLine("Joing meeting " + meetingTopic + " failed. Topic not found.");
@@ -227,21 +216,17 @@ namespace Client
 
         public void CloseProposal(String meetingTopic)
         {
-            List<String> output = server.CloseMeetingProposal(meetingTopic, GetName());
-            foreach(String s in output)
+            //List<String> output = server.CloseMeetingProposal(meetingTopic, GetName());
+            List<string> args = new List<string>();
+            args.Add(GetName());
+
+            Message output = server.Response("CloseMeetingProposal", args);
+            List<string> messages = (List<string>) output.getObj();
+
+            foreach (String s in messages)
             {
                 Console.WriteLine(s);
             }
-        }
-
-        public void AddLocation(string location)
-        {
-            server.AddMeetingLocation(location);
-        }
-
-        public void AddRoom(string location, string room, int capacity)
-        {
-            server.AddMeetingRoom(location, room, capacity);
         }
 
         private void ProcessConsoleLine(string line)
@@ -288,12 +273,6 @@ namespace Client
                     break;
                 case "wait":
                     System.Threading.Thread.Sleep(Int32.Parse(commandArgs[1]));
-                    break;
-                case "addLocation":
-                    AddLocation(commandArgs[1]);
-                    break;
-                case "addRoom":
-                    AddRoom(commandArgs[1], commandArgs[2], Int32.Parse(commandArgs[3]));
                     break;
                 default:
                     System.Console.WriteLine("ERROR: " + commandArgs[0] + " is an unknown command!");

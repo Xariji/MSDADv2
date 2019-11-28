@@ -2,6 +2,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Runtime.Remoting;
+
 
 namespace Server
 {
@@ -11,9 +14,18 @@ namespace Server
         List<MeetingProposal> meetingProposals;
         List<MeetingLocation> meetingLocations;
         List<IClient> clientsList;
-        //List<User> userList;
+
         int currMPId;
         SchedulingServer server;
+
+        //Freeze and unfreeze
+        private bool isFrozen;
+        private readonly Random seedRandom;
+
+        private readonly EventWaitHandle frozenRequestsHandler;
+        private readonly EventWaitHandle handler;
+
+        Dictionary<string, List<string>> rFrozen = new Dictionary<string, List<string>>();
 
         public ServerCli(SchedulingServer server)
         {
@@ -28,21 +40,26 @@ namespace Server
             //userList = new List<User>();
             currMPId = 0;
             this.server = server;
+
+
+            //freezing
+            this.isFrozen = false;
+            this.handler = new EventWaitHandle(false, EventResetMode.ManualReset);
+            this.frozenRequestsHandler = new EventWaitHandle(false, EventResetMode.ManualReset);
         }
 
-        public void Register(string url)
+        private Message Register(string url)
         {
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
             Console.WriteLine("User " + client.getUser().getName() + " registered.");
+            Message mess = new Message(true, null, "Conected to Server  " + server.GetId());
+
+            return mess;
         }
 
-        public String GetName()
-        {
-            return server.GetId();
-        }
 
-        public Tuple<Boolean, string> AddMeetingProposal(String topic, int minParticipants, 
+        private Message AddMeetingProposal(String topic, int minParticipants, 
             string[] slots, string[] invitees, string username)
         {
             IClient ic = findClient(username);
@@ -139,35 +156,42 @@ namespace Server
                 message = "Meeting with that topic already exists";
             }
             ic.setUser(user);
-            return Tuple.Create(finalExists, message);
+            return new Message(finalExists,null , message);
         }
 
-        //private bool validateRooms(List<Slot> list)
-        //{
-        //    foreach(MeetingLocation ml in meetingLocations)
-        //    {
-        //        foreach(Slot slot in list)
-        //        {
-        //            if(!ml.GetMeetingRooms().Contains(slot.GetMeetingRoom()))
-        //            {
-        //                return false;
-        //            }
-        //        }
-        //    }
-        //    return true;
-        //}
 
-        public Tuple<Boolean, int> AddUserToProposal(String meetingTopic, string username, List<Slot> slots)
+
+        private Message AddUserToProposal(String meetingTopic, string username, string[] slots)
         {
             IClient ic = findClient(username);
             User user = ic.getUser();
+
+            List<Slot> slotsList = new List<Slot>();
+            foreach (string slotUnformat in slots)
+            {
+                string[] slotFormat = slotUnformat.Split(
+                   new[] { ";" },
+                   StringSplitOptions.None);
+                MeetingLocation meetingLocation = null;
+                foreach (MeetingLocation ml in GetAvailableMeetingLocations())
+                {
+                    if (ml.getName() == slotFormat[0])
+                    {
+                        meetingLocation = ml;
+                        slotsList.Add(new Slot(meetingLocation, slotFormat[1]));
+                    }
+                }
+            
+
+            }
+
             foreach (MeetingProposal mp in meetingProposals)
             {
                 if (mp.getMPTopic() == meetingTopic)
                 {
                     if (mp.canJoin(user))
                     {
-                        mp.addMeetingRec(user, slots);
+                        mp.addMeetingRec(user, slotsList);
                         user.addActiveMP(mp);
                         Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
                     }
@@ -177,22 +201,22 @@ namespace Server
                     }
                     //ID of MeetingProposal found: return 1
                     ic.setUser(user);
-                    return Tuple.Create(mp.canJoin(user), 1);
+                    return new Message(mp.canJoin(user), 1, "");
                 }
             }
             //No ID of MeetingProposal found: return 0
             ic.setUser(user);
-            Console.WriteLine("User " + user.getName() + " failed joining meeting " + meetingTopic + ". Topic not found.");
-            return Tuple.Create(false, 0);
+            return new Message(false, 0, "User " + user.getName() + " failed joining meeting " + meetingTopic + ". Topic not found.");
+
         }
 
-        public void AddMeetingLocation(string location)
+        private void AddMeetingLocation(string location)
         {
             MeetingLocation ml = new MeetingLocation(location);
             meetingLocations.Add(ml);
         }
 
-        public List<String> CloseMeetingProposal(String meetingTopic, string username)
+        private Message CloseMeetingProposal(String meetingTopic, string username)
         {
             IClient ic = findClient(username);
             User user = ic.getUser();
@@ -217,27 +241,23 @@ namespace Server
                             Console.WriteLine("---Meeting closed successfully.");
                             Console.WriteLine(dm.Item2);
                             ic.setUser(user);
-                            return new List<String> { "Meeting closed successfully.", dm.Item2 };
+                            return new Message(true, dm.Item2, "Meeting closed successfully.");
                         }
                         else
                         {
                             mp.setStatus(MeetingProposal.Status.Cancelled);
                             Console.WriteLine("---Meeting cancelled.");
                             ic.setUser(user);
-                            return new List<String> { "Meeting cancelled." };
+                            return new Message(true ,null, "Meeting cancelled." );
                         }
                     }   
                 }
             }
             Console.WriteLine("Meeting to close not found.");
             ic.setUser(user);
-            return new List<String> { "Meeting to close not found." };
-            //its necessary to signal clients that the proposal is closed or 
-            // alternatively just to remove the proposal and deal with the 
-            // future client requests 
 
 
-            // this is gonna call decideMeeting
+            return new Message(true, null, "Meeting to close not found.");     
         }
 
         // decide meeting place and location based on the users that are going to attend
@@ -319,12 +339,12 @@ namespace Server
             return Tuple.Create(false,"");
         }
 
-        public int getCurrMPId()
+        private int getCurrMPId()
         {
             return currMPId;
         }
 
-        public List<MeetingProposal> getJoinableMP(String username)
+        private List<MeetingProposal> getJoinableMP(String username)
         {
             IClient ic = findClient(username);
             User user = ic.getUser();
@@ -349,7 +369,7 @@ namespace Server
                 }
             }
         }
-        public List<MeetingRoom> GetAvailableMeetingRooms()
+        private List<MeetingRoom> GetAvailableMeetingRooms()
         {
             List<MeetingRoom> mrs = new List<MeetingRoom>();
             foreach (MeetingLocation ml in meetingLocations)
@@ -359,13 +379,13 @@ namespace Server
             return mrs;
         }
 
-        public List<MeetingLocation> GetAvailableMeetingLocations()
+        private List<MeetingLocation> GetAvailableMeetingLocations()
         {
             return meetingLocations;
         }
 
         //should be called on client-side each time an user is updated 
-        public IClient findClient(String username)
+        private IClient findClient(String username)
         {
             foreach (IClient ic in clientsList)
             {
@@ -377,11 +397,102 @@ namespace Server
             return null;
         }
 
-        public String GetServerId()
+        private String GetServerId()
         {
             return server.GetId();
         }
+
+
+        public void freeze()
+        {
+            // rFrozen.Clear();
+            isFrozen = true;
+        }
+
+        public void unfreeze()
+        {
+            isFrozen = false;
+            this.handler.Set();
+            this.handler.Reset();
+        }
+
+
+        // this has to work for every request
+        // should we reply something to the client or just do it
+        // this handles multi-threading
+        public Message Response(String request, List<string> args )//Request request)
+        {
+            int delay = this.seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
+
+            Thread.Sleep(delay);
+
+            Message mess;
+
+            if (this.isFrozen)
+            {
+                this.rFrozen.Add(request, args);
+                while (this.isFrozen)
+                {
+                    this.handler.WaitOne();
+                }
+
+                mess = requestHandle(request, args);
+
+                this.rFrozen.Remove(request);
+                this.frozenRequestsHandler.Set();
+                this.frozenRequestsHandler.Reset();
+            }
+            else
+            {
+                while (this.rFrozen.Count > 0)
+                {
+                    this.frozenRequestsHandler.WaitOne();
+                }
+
+               mess = requestHandle(request, args);
+            }
+
+            return mess;
+        }
+
+        public Message requestHandle(String request, List<String> args)
+        {
+
+            Message mess;
+            if (request == "Register") // register
+            {
+                mess = Register(args[0]);
+            }
+            else if (request == "CloseMeetingProposal") // close
+            {
+                mess = CloseMeetingProposal(args[0], args[1]);
+            }
+            else if (request == "AddMeetingProposal") //create
+            {
+                string topic = args[0];
+                int minPart = Int32.Parse(args[1]);
+                string username = args[2];
+                string[] slots = args[3].Split(' ');
+                string[] invitees = args[4].Split(' ');
+
+                mess = AddMeetingProposal(topic,minPart, slots, invitees, username);
+            }
+            else if (request == "AddUserToProposal") //join 
+            {
+                string[] slots = args[3].Split(' ');
+                mess = AddUserToProposal(args[0], args[1], slots); // we need to change addUserToProposal
+            }
+            else
+            {
+                mess = new Message(false, null, "Operation not supported by the Server");
+            }
+
+            return mess;
+        }
+
     }
 
- 
+    
+
+
 }

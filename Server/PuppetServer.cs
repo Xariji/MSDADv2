@@ -18,17 +18,19 @@ namespace Server
         public void freeze()
         {
             Console.WriteLine("hey this is ps");
+            sc.freeze();
         }
 
         public void unfreeze()
         {
             Console.WriteLine("hey this is ps unfroze");
+            sc.unfreeze();
 
         }
 
         public void addRoom(String location, int capacity, String roomName)
         {
-
+            sc.AddMeetingRoom(location, roomName,capacity);
         }
 
 

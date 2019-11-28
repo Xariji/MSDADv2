@@ -46,15 +46,6 @@ namespace Server
 
         public static void Main(string[] args)
         {
-            /*
-            TcpChannel channel = new TcpChannel(8888);
-            ChannelServices.RegisterChannel(channel, false);
-
-            ServerCli mo = new ServerCli();
-            RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
-            Console.WriteLine("Server started");
-            System.Console.ReadLine();
-            */
 
             string[] vs = args[0].Split(
                    new[] { "'" },
@@ -87,9 +78,29 @@ namespace Server
 
         }
 
-        public String GetId()
+        public string GetId()
         {
             return id;
+        }
+
+        public int getMinDelay()
+        {
+            return minDelay;
+        }
+
+        public int getMaxDelay()
+        {
+            return maxDelay;
+        }
+
+        public int getMaxFaults()
+        {
+            return maxFaults;
+        }
+
+        public String getURL()
+        {
+            return URL;
         }
 
     }
