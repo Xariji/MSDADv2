@@ -30,11 +30,12 @@ namespace Server
             this.server = server;
         }
 
-        public void Register(string url)
+        public String[] Register(string url)
         {
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
             Console.WriteLine("User " + client.getUser().getName() + " registered.");
+            return server.getBackupServer();
         }
 
         public String GetName()
@@ -381,6 +382,45 @@ namespace Server
         {
             return server.GetId();
         }
+
+        public void initializeView(String serverid, String serverurl)
+        {
+            server.updateView("add", serverid, serverurl);
+        }
+
+        public void addServerToView(String serverid, String serverurl)
+        {
+            //prevent deadlock
+            if (!server.getView().ContainsKey(serverid))
+            {
+                lock (server)
+                {
+                    Console.WriteLine("-------- BEGIN VIEW UPDATE --------");
+                    server.updateView("add", serverid, serverurl);
+                    Console.WriteLine("Server added: " + serverid + " @ " + serverurl);
+                    String backupInfo = server.getBackupServer()[0];
+                    for (int i = 1; i < server.getBackupServer().Length; i++)
+                    {
+                        backupInfo += ", " + server.getBackupServer()[i];
+                    }
+                    Console.WriteLine("New Backup-URL: " + backupInfo);
+                    if (!server.getBackupServer().Equals(server.getURL())) 
+                    { 
+                        ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
+                        bscli.addServerToView(serverid, serverurl);
+                    }
+                    //send command to update backup server to clients
+                    foreach (IClient client in clientsList)
+                    {
+                        client.setBackupServerURL(server.getBackupServer());
+                    }
+                    Console.WriteLine("Backup server in " + clientsList.Count + " client(s) updated.");
+                    Console.WriteLine("--------- END VIEW UPDATE ---------");
+                }
+                
+            }  
+        }
+
     }
 
  

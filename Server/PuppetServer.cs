@@ -32,14 +32,14 @@ namespace Server
         }
 
 
-        public void addServer(String server)
+        public void initializeView(String serverid, String serverurl)
         {
-
+            sc.initializeView(serverid, serverurl);
         }
 
-        public Dictionary<string, string> fetchView()
+        public void addServerToView(String serverid, String serverurl)
         {
-            return null;
+            sc.addServerToView(serverid, serverurl);
         }
     }
 }
