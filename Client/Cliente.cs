@@ -77,20 +77,18 @@ namespace Client
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
-             List<string> arg = new List<string>();
+            List<String> arg = new List<String>();
             arg.Add(cURL);
             Message mess = server.Response("Register", arg);
-
             Console.WriteLine(mess.getMessage());  
-             //sURLBackup = server.Register(cURL);
-            //String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).GetServerId();
-            //for(int i=1; i<sURLBackup.Length; i++)
-            //{
-            //    backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).GetServerId();
-            //}
- 
 
-            //Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.GetServerId());
+            sURLBackup = Array.ConvertAll((object[]) mess.getObj(), Convert.ToString);
+            String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).Response("GetServerId", null).getMessage();
+            for(int i=1; i<sURLBackup.Length; i++)
+            {
+                backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).Response("GetServerId", null).getMessage();
+            }
+            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.Response("GetServerId", null).getMessage());
 
 
             if (args.Length == 1 || args.Length == 2)
@@ -162,7 +160,7 @@ namespace Client
         {
             //Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
 
-            List<string> args = new List<string>();
+            List<String> args = new List<String>();
             args.Add(topic);
             args.Add(minParticipants.ToString());
             args.Add(slots.ToString());
@@ -200,7 +198,7 @@ namespace Client
 
             //Tuple<Boolean, int> output = server.AddUserToProposal(meetingTopic, GetName(), slots);
 
-            List<string> args = new List<string>();
+            List<String> args = new List<String>();
             args.Add(meetingTopic);
             args.Add(slots.ToString());
             args.Add(GetName());
@@ -226,11 +224,11 @@ namespace Client
         public void CloseProposal(String meetingTopic)
         {
             //List<String> output = server.CloseMeetingProposal(meetingTopic, GetName());
-            List<string> args = new List<string>();
+            List<String> args = new List<String>();
             args.Add(GetName());
 
             Message output = server.Response("CloseMeetingProposal", args);
-            List<string> messages = (List<string>) output.getObj();
+            List<String> messages = (List<String>) output.getObj();
 
             foreach (String s in messages)
             {

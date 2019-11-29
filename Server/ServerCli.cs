@@ -53,7 +53,7 @@ namespace Server
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
 
-            Message mess = new Message(true, null, "Conected to Server  " + server.GetId());
+            Message mess = new Message(true, server.getBackupServer(), "Conected to Server  " + server.GetId());
 
             return mess;
         }
@@ -396,9 +396,9 @@ namespace Server
         return null;
     }
 
-    private String GetServerId()
+    private Message GetServerId()
     {
-        return server.GetId();
+        return new Message(true, null, server.GetId());
     }
 
     public void freeze()
@@ -416,11 +416,11 @@ namespace Server
     // this has to work for every request
     // should we reply something to the client or just do it
     // this handles multi-threading
-    public Message Response(String request, List<string> args)//Request request)
+    public Message Response(String request, List<String> args)//Request request)
     {
-        int delay = this.seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
+            //int delay = this.seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
 
-        Thread.Sleep(delay);
+            Thread.Sleep(5);//delay);
 
         Message mess;
 
@@ -477,6 +477,10 @@ namespace Server
         {
             string[] slots = args[3].Split(' ');
             mess = AddUserToProposal(args[0], args[1], slots); // we need to change addUserToProposal
+        }
+        else if (request == "GetServerId") //get serverID
+        {
+                mess = GetServerId();
         }
         else
         {
