@@ -53,7 +53,7 @@ namespace Server
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
 
-            Message mess = new Message(true, server.getBackupServer(), "Conected to Server  " + server.GetId());
+            Message mess = new Message(true, server.getBackupServer(), "conected to Server " + server.GetId());
             Console.WriteLine("Client " + client.getUser().getName() + " connected.");
             return mess;
         }
@@ -561,27 +561,29 @@ namespace Server
                         }
                         Console.WriteLine("New Backup-URL: " + backupInfo);
 
-                        int indexBackupUpdate = 0;
-                        ServerCli bscli;
                         if (!server.getBackupServer()[0].Equals(server.getURL()))
                         {
-                            try
+                            tryConnectToBackup(0);
+
+                            void tryConnectToBackup(int indexBackupUpdate)
                             {
-                                bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);  
-                            }
-                            catch (Exception e)
-                            {
-                                if(indexBackupUpdate + 1 < server.getBackupServer().Length)
+                                try
                                 {
-                                    bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate + 1]);
+                                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
+                                    bscli.addServerToView(serverid, serverurl);
                                 }
-                                else
+                                catch (Exception e)
                                 {
-                                    Console.WriteLine("Error: No Backup-server reachable!");
-                                    return new Message(false, null, ""); ;
+                                    if (indexBackupUpdate + 1 < server.getBackupServer().Length)
+                                    {
+                                        tryConnectToBackup(indexBackupUpdate + 1);
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("Error: No Backup-server reachable!");
+                                    }
                                 }
                             }
-                            bscli.addServerToView(serverid, serverurl);
                         }
                         //send command to update backup server to clients
                         foreach (IClient client in clientsList)

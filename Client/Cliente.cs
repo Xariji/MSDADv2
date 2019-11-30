@@ -80,16 +80,8 @@ namespace Client
             List<String> arg = new List<String>();
             arg.Add(cURL);
             Message mess = server.Response("Register", arg);
-            Console.WriteLine(mess.getMessage());  
-
-            sURLBackup = Array.ConvertAll((object[]) mess.getObj(), Convert.ToString);
-            String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).Response("GetServerId", null).getMessage();
-            for(int i=1; i<sURLBackup.Length; i++)
-            {
-                backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).Response("GetServerId", null).getMessage();
-            }
-            Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.Response("GetServerId", null).getMessage());
-
+            sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
+            Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 
             if (args.Length == 1 || args.Length == 2)
             {
@@ -146,7 +138,7 @@ namespace Client
         /**
          * Lists all the meeting proposals
          */
-        public List<MeetingProposal> ListProposals()
+        private List<MeetingProposal> ListProposals()
         {
             return null; // Not working now, we just need to know the proposals we created like locally and the other
                          // that others users tell us
@@ -155,7 +147,7 @@ namespace Client
         /**
          * Creates a proposal
          */
-        public void CreateProposal(String topic, int minParticipants, String[] slots, String[] invitees)
+        private void CreateProposal(String topic, int minParticipants, String[] slots, String[] invitees)
         {
             //Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
 
@@ -191,13 +183,13 @@ namespace Client
         }
 
         // this can be to share the proposal we created or the redirect a received proposal
-        public void ShareProposal(MeetingProposal mp)
+        private void ShareProposal(MeetingProposal mp)
         {
             // We will have to share the proposal among Clientes using Peer-to-Peer or another broadcast
             // algorithm
         }
 
-        public void Participate(String meetingTopic, String[] slots)
+        private void Participate(String meetingTopic, String[] slots)
         {
 
             if (slots == null)
@@ -212,37 +204,58 @@ namespace Client
             args.Add(meetingTopic);
             args.Add(slots.ToString());
             args.Add(GetName());
-            Message output = server.Response("AddUserToProposal", args);
 
-            if (output.getSucess())
+            try
             {
-                Console.WriteLine("Meeting " + meetingTopic + " joined successfully.");
-            } else
-            {
-                switch (output.getObj())
+                Message output = server.Response("AddUserToProposal", args);
+                if (output.getSucess())
                 {
-                    case 0:
-                        Console.WriteLine("Joing meeting " + meetingTopic + " failed. Topic not found.");
-                        break;
-                    case 1:
-                        Console.WriteLine("Joing meeting " + meetingTopic + " failed. Meeting is restricted.");
-                        break;
+                    Console.WriteLine("Meeting " + meetingTopic + " joined successfully.");
+                }
+                else
+                {
+                    switch (output.getObj())
+                    {
+                        case 0:
+                            Console.WriteLine("Joing meeting " + meetingTopic + " failed. Topic not found.");
+                            break;
+                        case 1:
+                            Console.WriteLine("Joing meeting " + meetingTopic + " failed. Meeting is restricted.");
+                            break;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                if(connectToBackup(0, new List<string>()))
+                {
+                    Participate(meetingTopic, slots);
                 }
             }
         }
 
-        public void CloseProposal(String meetingTopic)
+        private void CloseProposal(String meetingTopic)
         {
             //List<String> output = server.CloseMeetingProposal(meetingTopic, GetName());
             List<String> args = new List<String>();
             args.Add(GetName());
 
-            Message output = server.Response("CloseMeetingProposal", args);
-            List<String> messages = (List<String>) output.getObj();
-
-            foreach (String s in messages)
+            try
             {
-                Console.WriteLine(s);
+                Message output = server.Response("CloseMeetingProposal", args);
+                List<String> messages = (List<String>)output.getObj();
+
+                foreach (String s in messages)
+                {
+                    Console.WriteLine(s);
+                }
+            }
+            catch (Exception e)
+            {
+                if (connectToBackup(0, new List<string>()))
+                {
+                    CloseProposal(meetingTopic);
+                }
             }
         }
 
@@ -258,34 +271,26 @@ namespace Client
             sURLBackup = urls;
         }
 
-        public Boolean connectToBackup(int index, List<String> args)
+        private Boolean connectToBackup(int index, List<String> args)
         {
             Console.WriteLine("Connection to Server lost. Trying to reconnect...");
             try
             {
                 args.Add(sURL);
+                sURL = sURLBackup[index];
                 server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[index]);
                 server.Response("RemoveServerFromView", args).getMessage();
-                sURL = sURLBackup[index];
 
                 List<String> arg = new List<String>();
                 arg.Add(cURL);
                 Message mess = server.Response("Register", arg);
-                Console.WriteLine(mess.getMessage());
-
                 sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
-                String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).Response("GetServerId", null).getMessage();
-                for (int i = 1; i < sURLBackup.Length; i++)
-                {
-                    backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).Response("GetServerId", null).getMessage();
-                }
-                Uri myUri = new Uri(cURL);
-                Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.Response("GetServerId", null).getMessage());
+                Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
+
                 return true;
             }
             catch(Exception e)
             {
-                Console.WriteLine("Connect BU: " + e.Message);
                 foreach(String s in args)
                 {
                     Console.WriteLine(s);
@@ -304,7 +309,6 @@ namespace Client
                 }
                 catch (Exception e2)
                 {
-                    Console.WriteLine("Connect BU2: " + e2.Message);
                     return false;
                 }
             }
@@ -312,7 +316,7 @@ namespace Client
         }
 
          private void ProcessConsoleLine(string line)
-        {
+         {
             string[] commandArgs = line.Split(
                    new[] { " " },
                    StringSplitOptions.None);
@@ -360,6 +364,6 @@ namespace Client
                     System.Console.WriteLine("ERROR: " + commandArgs[0] + " is an unknown command!");
                     break;
             }
-        }
+         }
     }
 }
