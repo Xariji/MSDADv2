@@ -20,12 +20,15 @@ namespace Server
 
         //Freeze and unfreeze
         private bool isFrozen;
-        private readonly Random seedRandom;
+        private int frozenRequests;
+
+        private readonly Random seedRandom = new Random();
 
         private readonly EventWaitHandle frozenRequestsHandler;
         private readonly EventWaitHandle handler;
 
-        Dictionary<string, List<string>> rFrozen = new Dictionary<string, List<string>>();
+        private int IncrementFrozenRequests() { return Interlocked.Increment(ref this.frozenRequests); }
+        private int DecrementFrozenRequests() { return Interlocked.Decrement(ref this.frozenRequests); }
 
         public ServerCli(SchedulingServer server)
         {
@@ -37,7 +40,6 @@ namespace Server
             ml = new MeetingLocation("Porto");
             meetingLocations.Add(ml);
             clientsList = new List<IClient>();
-            //userList = new List<User>();
             currMPId = 0;
             this.server = server;
 
@@ -140,6 +142,8 @@ namespace Server
                     user.addMyMP(mp);
                     currMPId++;
                     Console.WriteLine("Meeting " + mp.getMPTopic() + " created successfully.");
+                    message = "Meeting " + mp.getMPTopic() + " created successfully.";
+
                 }
                 else
                 {
@@ -156,7 +160,7 @@ namespace Server
             message = "Meeting with that topic already exists";
         }
         ic.setUser(user);
-        return new Message(finalExists, null, message);
+        return new Message(finalExists, mp, message);
     }
 
 
@@ -403,14 +407,20 @@ namespace Server
 
     public void freeze()
     {
-        // rFrozen.Clear();
-        isFrozen = true;
+
+            Console.WriteLine("This server is frozen");
+            frozenRequests = 0;
+            isFrozen = true;
     }
 
-    public void unfreeze() { 
-        isFrozen = false;
-     
-    }
+    public void unfreeze() {
+
+            Console.WriteLine("This server unfroze");
+
+            isFrozen = false;
+            this.handler.Set();
+            this.handler.Reset();
+        }
 
 
     // this has to work for every request
@@ -418,29 +428,33 @@ namespace Server
     // this handles multi-threading
     public Message Response(String request, List<String> args)//Request request)
     {
-            //int delay = this.seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
+        Console.WriteLine("Request");
 
-            Thread.Sleep(5);//delay);
+        int delay = seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
+
+        Thread.Sleep(delay);
 
         Message mess;
 
-        if (this.isFrozen)
+        if (isFrozen)
         {
-            this.rFrozen.Add(request, args);
+
+            this.IncrementFrozenRequests();
             while (this.isFrozen)
             {
-                this.handler.WaitOne();
+                    Console.WriteLine("bolas");
+                    this.handler.WaitOne();
             }
-
+            Console.WriteLine("carambolas");
             mess = requestHandle(request, args);
 
-            this.rFrozen.Remove(request);
+            this.DecrementFrozenRequests();
             this.frozenRequestsHandler.Set();
             this.frozenRequestsHandler.Reset();
         }
         else
         {
-            while (this.rFrozen.Count > 0)
+            while (this.frozenRequests > 0)
             {
                 this.frozenRequestsHandler.WaitOne();
             }
@@ -485,9 +499,9 @@ namespace Server
         else if (request == "AddUserToProposal") //join 
         {
             string[] slots = args[3].Split(' ');
-            mess = AddUserToProposal(args[0], args[1], slots); // we need to change addUserToProposal
+            mess = AddUserToProposal(args[0], args[1], slots); 
         }
-        else if (request == "GetServerId") //get serverID
+        else if (request == "GetServerId") //get serverID 
         {
                 mess = GetServerId();
         }

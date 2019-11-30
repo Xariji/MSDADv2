@@ -19,6 +19,8 @@ namespace Client
         private String script;
         private String[] sURLBackup;
 
+        private List<MeetingProposal> myProposals;
+
         //Usage: put as args: <username> <scriptPath>
 
         public Cliente(String username, String cURL, String sURL, String script)
@@ -27,6 +29,7 @@ namespace Client
             this.cURL = cURL;
             this.sURL = sURL;
             this.script = script;
+            this.myProposals = new List<MeetingProposal>();
         }
         public void start() {
 
@@ -137,19 +140,9 @@ namespace Client
 
         }
 
-
         public String GetName()
         {
             return username;
-        }
-
-        /**
-         * Lists all the meeting proposals
-         */
-        public List<MeetingProposal> ListProposals()
-        {
-            return null; // Not working now, we just need to know the proposals we created like locally and the other
-                         // that others users tell us
         }
          
         /**
@@ -173,6 +166,7 @@ namespace Client
                 Message output = server.Response("AddMeetingProposal", args);
                 if (output.getSucess())
                 {
+                    this.myProposals.Add((MeetingProposal) output.getObj()); // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
                     Console.WriteLine("Proposal created with success");
                 }
                 else
@@ -321,11 +315,11 @@ namespace Client
             {
                 case "list":
                     //list all available meetings
-                    List<MeetingProposal> list = ListProposals();
-                    foreach (MeetingProposal proposal in list)
-                    {
-                        System.Console.WriteLine(proposal.ToString());
-                    }
+            
+                        foreach (MeetingProposal proposal in this.myProposals)
+                        {
+                            System.Console.WriteLine(proposal.ToString());
+                        }
                     break;
                 case "create":
                     int nSlots = Int32.Parse(commandArgs[3]);
