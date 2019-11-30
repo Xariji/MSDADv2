@@ -285,10 +285,6 @@ namespace Client
             }
             catch(Exception e)
             {
-                foreach(String s in args)
-                {
-                    Console.WriteLine(s);
-                }
                 try
                 {
                     if(index + 1 < sURLBackup.Length)
