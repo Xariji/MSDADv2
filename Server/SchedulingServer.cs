@@ -33,7 +33,6 @@ namespace Server
         public void start() {
 
             Uri myUri = new Uri(URL);
-            Console.WriteLine("Server " + myUri.Port + " started");
 
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
@@ -41,7 +40,7 @@ namespace Server
             SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
             ServerCli mo = new ServerCli(server);
             RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
-            Console.WriteLine("Server " + this.id +" started");
+            Console.WriteLine("Server " + this.id +" started on Port " + myUri.Port);
             System.Console.ReadLine();
 
         }
@@ -60,7 +59,6 @@ namespace Server
             int maxDelay = Int32.Parse(vs[4]);
 
             Uri myUri = new Uri(URL);
-            System.Console.WriteLine("Server " + myUri.Port + " started");
 
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
@@ -75,7 +73,7 @@ namespace Server
             PuppetServer ps = new PuppetServer(mo); //testing this
             RemotingServices.Marshal(ps, "ps", typeof(PuppetServer)); // testing this
 
-            Console.WriteLine("Server " + id + " started");
+            Console.WriteLine("Server " + id + " started on Port " + myUri.Port);
             System.Console.ReadLine();
 
         }

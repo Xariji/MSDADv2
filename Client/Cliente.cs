@@ -155,29 +155,39 @@ namespace Client
         /**
          * Creates a proposal
          */
-        public void CreateProposal(String topic, int minParticipants, 
-            string[] slots, string[] invitees)
+        public void CreateProposal(String topic, int minParticipants, String[] slots, String[] invitees)
         {
             //Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
 
             List<String> args = new List<String>();
+            args.Add(GetName());
             args.Add(topic);
             args.Add(minParticipants.ToString());
-            args.Add(slots.ToString());
-            args.Add(invitees.ToString());
-            args.Add(GetName());
+            args.Add(slots.Length.ToString());
+            Array.ForEach(slots, args.Add);
+            args.Add(invitees.Length.ToString());
+            Array.ForEach(invitees, args.Add);
 
-
-
-            Message output = server.Response("AddMeetingProposal", args);
-            if(output.getSucess()){
-                Console.WriteLine("Proposal created with success");
-            }
-            else
+            try
             {
-                Console.WriteLine(output.getMessage());
+                Message output = server.Response("AddMeetingProposal", args);
+                if (output.getSucess())
+                {
+                    Console.WriteLine("Proposal created with success");
+                }
+                else
+                {
+                    Console.WriteLine(output.getMessage());
+                }
+                //ShareProposal(mp);
             }
-            //ShareProposal(mp);
+            catch (Exception e)
+            {
+                if(connectToBackup(0, new List<string>()))
+                {
+                    CreateProposal(topic, minParticipants, slots, invitees);
+                }
+            } 
         }
 
         // this can be to share the proposal we created or the redirect a received proposal
@@ -187,7 +197,7 @@ namespace Client
             // algorithm
         }
 
-        public void Participate(String meetingTopic, string[] slots)
+        public void Participate(String meetingTopic, String[] slots)
         {
 
             if (slots == null)
@@ -246,6 +256,59 @@ namespace Client
         public void setBackupServerURL(String[] urls)
         {
             sURLBackup = urls;
+        }
+
+        public Boolean connectToBackup(int index, List<String> args)
+        {
+            Console.WriteLine("Connection to Server lost. Trying to reconnect...");
+            try
+            {
+                args.Add(sURL);
+                server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[index]);
+                server.Response("RemoveServerFromView", args).getMessage();
+                sURL = sURLBackup[index];
+
+                List<String> arg = new List<String>();
+                arg.Add(cURL);
+                Message mess = server.Response("Register", arg);
+                Console.WriteLine(mess.getMessage());
+
+                sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
+                String backupInfo = ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[0])).Response("GetServerId", null).getMessage();
+                for (int i = 1; i < sURLBackup.Length; i++)
+                {
+                    backupInfo += ", " + ((ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[i])).Response("GetServerId", null).getMessage();
+                }
+                Uri myUri = new Uri(cURL);
+                Console.WriteLine("Cliente " + myUri.Port + " (" + username + ") connected to " + server.Response("GetServerId", null).getMessage());
+                return true;
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine("Connect BU: " + e.Message);
+                foreach(String s in args)
+                {
+                    Console.WriteLine(s);
+                }
+                try
+                {
+                    if(index + 1 < sURLBackup.Length)
+                    {
+                        connectToBackup(index + 1, args);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Error: No Backup-server reachable!");
+                        return false;
+                    }
+                }
+                catch (Exception e2)
+                {
+                    Console.WriteLine("Connect BU2: " + e2.Message);
+                    return false;
+                }
+            }
+            return false;
         }
 
          private void ProcessConsoleLine(string line)
