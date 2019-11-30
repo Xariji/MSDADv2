@@ -8,7 +8,7 @@ namespace Library
 {
     public interface ISchedulingServer
     {
-        Message Response(string request, List<string> args);
+        Message Response(String request, List<String> args);
 
     }
 }
