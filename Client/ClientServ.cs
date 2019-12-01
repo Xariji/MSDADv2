@@ -37,5 +37,16 @@ namespace Client
             client.setBackupServerURL(urls);
         }
 
+        public string getClientURL(){
+            return client.getURL();
+        }
+
+        public void shareProposal(MeetingProposal mp){
+            client.ShareProposal(mp);
+        }
+
+        public void receiveProposal(MeetingProposal mp){
+            client.receiveProposal(mp);
+        }
     }
 }

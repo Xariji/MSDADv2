@@ -12,6 +12,7 @@ namespace Client
     {
 
         private static ISchedulingServer server;
+        private static ClientServ cs;
 
         private String username;
         private String cURL;
@@ -38,7 +39,7 @@ namespace Client
             TcpChannel channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ClientServ cs = new ClientServ(this);
+            cs = new ClientServ(this);
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
@@ -72,7 +73,7 @@ namespace Client
             channel = new TcpChannel(myUri.Port);
             ChannelServices.RegisterChannel(channel, false);
 
-            ClientServ cs = new ClientServ(cli);
+            cs = new ClientServ(cli);
             RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
@@ -148,7 +149,8 @@ namespace Client
          */
         public List<MeetingProposal> ListProposals()
         {
-            return null; // Not working now, we just need to know the proposals we created like locally and the other
+            return cs.getUser().getMyMP(); 
+            // Not working now, we just need to know the proposals we created like locally and the other
                          // that others users tell us
         }
          
@@ -174,12 +176,12 @@ namespace Client
                 if (output.getSucess())
                 {
                     Console.WriteLine("Proposal created with success");
+                    ShareProposal((MeetingProposal) output.getObj());
                 }
                 else
                 {
                     Console.WriteLine(output.getMessage());
                 }
-                //ShareProposal(mp);
             }
             catch (Exception e)
             {
@@ -193,8 +195,46 @@ namespace Client
         // this can be to share the proposal we created or the redirect a received proposal
         public void ShareProposal(MeetingProposal mp)
         {
-            // We will have to share the proposal among Clientes using Peer-to-Peer or another broadcast
-            // algorithm
+            Console.WriteLine("Share Proposal: " + mp.getMPId());
+            List<String> args = new List<String>();
+            List<string> listURLs = (List<string>) server.Response("GetSharedClientsList", args).getObj();
+            foreach(string url in listURLs){
+                if(url != cURL){
+                    Console.WriteLine("Connect to client: " + url);
+               
+                    ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), url);
+                    Console.WriteLine("Send proposal");
+                    c.receiveProposal(mp);
+                }
+            }
+        }
+
+        public void receiveProposal(MeetingProposal mp){
+           Console.WriteLine("Receive proposal");
+
+            Boolean found = false;
+            Console.WriteLine(cs.getUser().getName());
+
+            //validate if the client already as the proposal
+
+            foreach(MeetingProposal m in cs.getUser().getMyMP()){
+                Console.WriteLine("Procurando");
+                if(m.getMPId() == mp.getMPId()){
+                    Console.WriteLine("Busted");
+                    found = true;
+                }
+            }
+            Console.WriteLine("Validated");
+
+            if(!found){
+                Console.WriteLine("Add");
+                //add the proposal
+                cs.getUser().addMyMP(mp);
+                //share it
+                Console.WriteLine("Partilhar: "  + mp.getMPId());
+                ShareProposal(mp);
+            }
+
         }
 
         public void Participate(String meetingTopic, String[] slots)
@@ -360,6 +400,10 @@ namespace Client
                     System.Console.WriteLine("ERROR: " + commandArgs[0] + " is an unknown command!");
                     break;
             }
+        }
+
+        public string getURL(){
+            return cURL;
         }
     }
 }
