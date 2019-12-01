@@ -192,7 +192,7 @@ namespace PuppetMaster
         private void Freeze_Click(object sender, EventArgs e)
         {
             String servID = freezeID.Text;
-            urlServers.TryGetValue(servID, out String url);
+            urlServers.TryGetValue(servID, out string url);
 
             Uri myUri = new Uri(url);
 
