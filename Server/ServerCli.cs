@@ -509,6 +509,9 @@ namespace Server
         {
             mess = removeServerFromView(args);
         }
+        else if(request == "GetSharedClientsList"){
+            mess = getSharedClientsList();
+        }
         else
         {
             mess = new Message(false, null, "Operation not supported by the Server");
@@ -612,5 +615,57 @@ namespace Server
             }
             return new Message(true, null, "");
         }
+
+        //Get client urls from the server
+        public List<string> getClientsList(){
+
+            List<string> list = new List<string>();
+
+            //Gather all the clients registered on this server
+            foreach(IClient c in clientsList){
+                list.Add(c.getClientURL());
+            }
+            return list;
+        }
+
+        //Get client urls from the server plus one alive from backup
+        public Message getSharedClientsList(){
+
+            List<string> list = null;
+            List<string> auxList = null;
+            int indexBackupUpdate = 0;
+            ServerCli bscli = null;
+
+            //get servers clients list
+            list = getClientsList();
+
+            //find a active backup server
+            if (!server.getBackupServer()[0].Equals(server.getURL()))
+            {
+                try
+                {
+                    bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);  
+                }
+                catch (Exception e)
+                {
+                    if(indexBackupUpdate + 1 < server.getBackupServer().Length)
+                    {
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate + 1]);
+                    }
+                }
+            }
+
+            if(bscli != null){
+                //get the clients list from the found backup server
+                auxList = bscli.getClientsList();
+                if(auxList.Count() != 0){
+                    list.Add(auxList[0]);
+                }
+            }
+
+            return new Message(true, list, "");
+
+        }
+
     }
     }
