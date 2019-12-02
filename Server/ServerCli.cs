@@ -428,8 +428,6 @@ namespace Server
     // this handles multi-threading
     public Message Response(String request, List<String> args)//Request request)
     {
-        Console.WriteLine("Request");
-
         int delay = seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
 
         Thread.Sleep(delay);
@@ -442,7 +440,6 @@ namespace Server
             this.IncrementFrozenRequests();
             while (this.isFrozen)
             {
-                    Console.WriteLine("bolas");
                     this.handler.WaitOne();
             }
             Console.WriteLine("carambolas");

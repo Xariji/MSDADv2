@@ -25,12 +25,17 @@ namespace PuppetMaster
 
         Dictionary<String, Process> sProcesses = new Dictionary<string, Process>();
 
-
         String scriptPath = "";
+
+        int serverNo = 1, clientNo = 1;
 
         public PMForm()
         {
             InitializeComponent();
+            addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
+            addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') +"/mcm";
+            username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
+            clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
         }
 
         // We gonna use the PCS here to create a Server
@@ -93,6 +98,10 @@ namespace PuppetMaster
             }
             urlServers.Add(serverID, URL);
             ps.addServerToView(serverID, URL);
+
+            serverNo++;
+            addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
+            addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') + "/mcm";
         }
 
         private void addClient_Click(object sender, EventArgs e)
@@ -157,6 +166,10 @@ namespace PuppetMaster
             }
 
             urlClients.Add(userName, cURL);
+
+            clientNo++;
+            username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
+            clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
         }
 
         private void selectScript_Click(object sender, EventArgs e)
