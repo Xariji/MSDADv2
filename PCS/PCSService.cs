@@ -29,13 +29,13 @@ namespace PCS
         public void createServerProcess(String id, String URL, int maxFaults, int minDelay, int maxDelay)
         {
             SchedulingServer ss = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
-            ss.start();
+            //ss.start();
         }
 
         public void createClientProcess(String username, String cURL, String sURL, String script)
         {
             Cliente cc = new Cliente(username, cURL, sURL, script);
-            cc.start();
+            //cc.start();
         }
     }
 }

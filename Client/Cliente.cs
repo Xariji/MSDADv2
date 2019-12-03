@@ -32,23 +32,6 @@ namespace Client
             this.script = script;
             this.myProposals = new List<MeetingProposal>();
         }
-        public void start() {
-
-            Uri myUri = new Uri(this.cURL);
-            //in progress still
-            Console.WriteLine("Cliente " + myUri.Port + " started");
-
-            // error : says that the channel has already bin created with the name 'tcp'
-            TcpChannel channel = new TcpChannel(myUri.Port);
-            ChannelServices.RegisterChannel(channel, false);
-
-            cs = new ClientServ(this);
-            RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
-
-            server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
-
-        }
-
 
         static void Main(string[] args)
         {
@@ -180,7 +163,7 @@ namespace Client
             }
             catch (Exception e)
             {
-                if(connectToBackup(0, new List<string>()))
+                if (connectToBackup(0, new List<string>()))
                 {
                     CreateProposal(topic, minParticipants, slots, invitees);
                 }
@@ -188,7 +171,7 @@ namespace Client
         }
 
         // this can be to share the proposal we created or the redirect a received proposal
-        private void ShareProposal(MeetingProposal mp)
+        public void ShareProposal(MeetingProposal mp)
         {
             Console.WriteLine("Share Proposal: " + mp.getMPId());
             List<String> args = new List<String>();
@@ -245,8 +228,8 @@ namespace Client
 
             List<String> args = new List<String>();
             args.Add(meetingTopic);
-            args.Add(slots.ToString());
             args.Add(GetName());
+            args.Add(string.Join(" ", slots));
 
             try
             {
@@ -270,7 +253,7 @@ namespace Client
             }
             catch (Exception e)
             {
-                if(connectToBackup(0, new List<string>()))
+                if (connectToBackup(0, new List<string>()))
                 {
                     Participate(meetingTopic, slots);
                 }
@@ -316,6 +299,7 @@ namespace Client
 
         private Boolean connectToBackup(int index, List<String> args)
         {
+            Boolean _return = true;
             Console.WriteLine("Connection to Server lost. Trying to reconnect...");
             try
             {
@@ -330,7 +314,7 @@ namespace Client
                 sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
                 Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 
-                return true;
+                _return = true;
             }
             catch(Exception e)
             {
@@ -343,15 +327,15 @@ namespace Client
                     else
                     {
                         Console.WriteLine("Error: No Backup-server reachable!");
-                        return false;
+                        _return = false;
                     }
                 }
                 catch (Exception e2)
                 {
-                    return false;
+                    _return = false;
                 }
             }
-            return false;
+            return _return;
         }
 
          private void ProcessConsoleLine(string line)
@@ -405,10 +389,10 @@ namespace Client
             }
          }
 
-        }
-
-        public string getURL(){
+        public string getURL()
+        {
             return cURL;
         }
+
     }
 }
