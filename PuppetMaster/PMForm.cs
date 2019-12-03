@@ -58,12 +58,6 @@ namespace PuppetMaster
 
             if (hostIPs.Any(hostIP => IPAddress.IsLoopback(hostIP) || localIPs.Contains(hostIP))) // we can directly create the server because is 
             {
-                // we should make an interface for the PuppetMaster to communicate
-                // directly with the server
-
-                //SchedulingServer ss = new SchedulingServer(serverID, URL, maxFaults, minDelay, maxDelay);
-                //ss.start();             
-                
                 var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -75,13 +69,12 @@ namespace PuppetMaster
                 };
 
                 process.Start();
-                String name = process.ProcessName; // we save the process and the name
                 sProcesses.Add(serverID, process);
             }
-            else
+            else 
             {
-                // pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
-                // pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
+                pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
+                pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
             }
             String psURLHost = myUri.Host;
             int psURLPort = myUri.Port + 1000;
@@ -112,13 +105,11 @@ namespace PuppetMaster
 
             // get local IP addresses
             IPAddress[] localIPs = Dns.GetHostAddresses(Dns.GetHostName());
+
             // test if any host IP is a loopback IP or is equal to any local IP
-
-
             if (hostIPs.Any(hostIP => IPAddress.IsLoopback(hostIP) || localIPs.Contains(hostIP))) // we can directly create the server because is 
             {
-                //Cliente cc = new Cliente(userName, cURL, sURL, script);
-                //cc.start();
+
                 Process process;
                 if(scriptPath != "")
                 {
@@ -145,15 +136,13 @@ namespace PuppetMaster
                     };
                 }
                 
-
                 process.Start();
 
-
             }
-            else
+            else // its not local
             {
-                //pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
-                //pCs.createClientProcess(userName, cURL, sURL, script);
+                pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000/pcs");
+                pCs.createClientProcess(userName, cURL, sURL, scriptPath);
             }
 
             urlClients.Add(userName, cURL);
@@ -180,13 +169,21 @@ namespace PuppetMaster
         {
             String serverID = crashID.Text;
 
-            sProcesses.TryGetValue(serverID, out Process pr);
+            if(sProcesses.TryGetValue(serverID, out Process pr))
+            {
+                pr.Kill();
 
-            pr.Kill();
-
-            sProcesses.Remove(serverID);
-            urlServers.Remove(serverID);
-
+                sProcesses.Remove(serverID);
+                urlServers.Remove(serverID);
+            }
+            else // if it's not local we have to call PCS
+            {
+                urlServers.TryGetValue(serverID, out string sURL); 
+                
+                Uri myUri = new Uri(sURL);
+                PCSService pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
+                pCs.crashServer(serverID);
+            }
 
         }
         private void Freeze_Click(object sender, EventArgs e)

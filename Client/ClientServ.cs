@@ -9,8 +9,8 @@ namespace Client
 {
     class ClientServ : MarshalByRefObject, IClient
     {
-        Cliente client;
-        User user;
+        private Cliente client;
+        private User user;
 
         public ClientServ(Cliente arg)
         {
@@ -34,7 +34,7 @@ namespace Client
         }
         public void setBackupServerURL(String[] urls)
         {
-            client.setBackupServerURL(urls);
+            this.client.setBackupServerURL(urls);
         }
 
         public string getClientURL(){
@@ -42,11 +42,11 @@ namespace Client
         }
 
         public void shareProposal(MeetingProposal mp){
-            client.ShareProposal(mp);
+            this.client.ShareProposal(mp);
         }
 
         public void receiveProposal(MeetingProposal mp){
-            client.receiveProposal(mp);
+            this.client.receiveProposal(mp);
         }
     }
 }

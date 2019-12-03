@@ -667,5 +667,9 @@ namespace Server
 
         }
 
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
     }
     }

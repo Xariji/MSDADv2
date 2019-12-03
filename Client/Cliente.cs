@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Runtime.Remoting.Channels.Tcp;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting;
+using System.Runtime.Remoting.Messaging;
+using System.Threading.Tasks;
 
 namespace Client
 {
@@ -21,6 +23,8 @@ namespace Client
         private String[] sURLBackup;
 
         private List<MeetingProposal> myProposals;
+
+        public delegate string RemoteAsyncDelegate();
 
         //Usage: put as args: <username> <scriptPath>
 
@@ -62,7 +66,7 @@ namespace Client
             String username = vs[0];
             String cURL = vs[1];
             String sURL = vs[2];
-            String script = "";
+            String script = "" ; 
             String[] sURLBackup;
 
             if(args.Length > 1)
@@ -133,6 +137,7 @@ namespace Client
 
         }
 
+
         public String GetName()
         {
             return username;
@@ -144,10 +149,11 @@ namespace Client
         public List<MeetingProposal> ListProposals()
         {
             return cs.getUser().getMyMP(); 
-            // Not working now, we just need to know the proposals we created like locally and the other
-                         // that others users tell us
         }
-         
+
+
+
+
         /**
          * Creates a proposal
          */
@@ -163,22 +169,34 @@ namespace Client
             Array.ForEach(slots, args.Add);
             args.Add(invitees.Length.ToString());
             Array.ForEach(invitees, args.Add);
+            Message output = null;
+
+            //TODO
+            // could add some cancelation tokens but i believe it's not necessary
+            // also we could add a timeout so we don't crash and know what is happening
+            // i think this is asynchronos but still when the server is crashed it can't "send" more requests;
+
+            Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("AddMeetingProposal", args));
 
             try
             {
-                Message output = server.Response("AddMeetingProposal", args);
+                task.Wait();
+                output = task.Result;
+
+                //Message output = server.Response("AddMeetingProposal", args);
                 if (output.getSucess())
                 {
-                    this.myProposals.Add((MeetingProposal) output.getObj()); // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
+                    this.myProposals.Add((MeetingProposal)output.getObj()); // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
                     Console.WriteLine("Proposal created with success");
-                    ShareProposal((MeetingProposal) output.getObj());
+                    //ShareProposal((MeetingProposal) output.getObj());
                 }
                 else
                 {
                     Console.WriteLine(output.getMessage());
                 }
             }
-            catch (Exception e)
+            
+            catch (Exception e) // we should specify the exceptions we get
             {
                 if(connectToBackup(0, new List<string>()))
                 {
@@ -188,7 +206,7 @@ namespace Client
         }
 
         // this can be to share the proposal we created or the redirect a received proposal
-        private void ShareProposal(MeetingProposal mp)
+        public void ShareProposal(MeetingProposal mp)
         {
             Console.WriteLine("Share Proposal: " + mp.getMPId());
             List<String> args = new List<String>();
@@ -404,8 +422,6 @@ namespace Client
                     break;
             }
          }
-
-        }
 
         public string getURL(){
             return cURL;
