@@ -32,5 +32,10 @@ namespace Library
         {
             return nameLocation;
         }
+
+        public int getRoomsCount()
+        {
+            return meetRooms.Count;
+        }
     }
 }

@@ -34,11 +34,6 @@ namespace Server
         {
             meetingProposals = new List<MeetingProposal>();
             meetingLocations = new List<MeetingLocation>();
-            MeetingLocation ml = new MeetingLocation("Lisboa");
-            ml.addRoom(new MeetingRoom("Room-C1", 5));
-            meetingLocations.Add(ml);
-            ml = new MeetingLocation("Porto");
-            meetingLocations.Add(ml);
             clientsList = new List<IClient>();
             currMPId = 0;
             this.server = server;
@@ -50,7 +45,8 @@ namespace Server
             this.frozenRequestsHandler = new EventWaitHandle(false, EventResetMode.ManualReset);
         }
 
-        private Message Register(string url) { 
+        private Message Register(string url)
+        {
 
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
@@ -61,354 +57,338 @@ namespace Server
         }
 
 
-    private Message AddMeetingProposal(String topic, int minParticipants,
-        string[] slots, string[] invitees, string username)
-    {
-        IClient ic = findClient(username);
-        User user = ic.getUser();
-        //First validate the invitees
-        Boolean finalExists = false;
-        Boolean usersExists = true;
-        string userNotFound = "";
-        string message = "";
-        List<User> users = new List<User>();
-        MeetingProposal mp = null;
-        if (invitees.Length > 0)
+        private Message AddMeetingProposal(String topic, int minParticipants,
+            string[] slots, string[] invitees, string username)
         {
-            for (int i = 0; i < invitees.Length && usersExists; i++)
+            IClient ic = findClient(username);
+            User user = ic.getUser();
+            //First validate the invitees
+            Boolean finalExists = false;
+            Boolean usersExists = true;
+            string userNotFound = "";
+            string message = "";
+            List<User> users = new List<User>();
+            MeetingProposal mp = null;
+            if (invitees.Length > 0)
             {
-                usersExists = false;
-                for (int j = 0; j < clientsList.Count && !usersExists; j++)
+                for (int i = 0; i < invitees.Length && usersExists; i++)
                 {
-                    if (clientsList[j].getUser().getName().Equals(invitees[i]))
+                    usersExists = false;
+                    for (int j = 0; j < clientsList.Count && !usersExists; j++)
                     {
-                        usersExists = true;
-                        users.Add(clientsList[j].getUser());
-                    }
-                }
-                userNotFound = invitees[i];
-            }
-        }
-        else
-        {
-            usersExists = false;
-        }
-        Boolean topicExists = false;
-        foreach (MeetingProposal meetingprop in meetingProposals)
-        {
-            if (meetingprop.getMPTopic() == topic)
-            {
-                topicExists = true;
-            }
-        }
-        if (!topicExists)
-        {
-            if (usersExists || invitees.Length == 0)
-            {
-                //if all invitees exists, validate slot list
-                Boolean slotsExists = true;
-                string slotNotFound = "";
-                List<Slot> slotsList = new List<Slot>();
-                if (slots.Length > 0)
-                {
-                    for (int x = 0; x < slots.Length && slotsExists; x++)
-                    {
-                        string[] slotFormat = slots[x].Split(
-                           new[] { ";" },
-                           StringSplitOptions.None);
-                        slotsExists = false;
-                        for (int z = 0; z < meetingLocations.Count && !slotsExists; z++)
+                        if (clientsList[j].getUser().getName().Equals(invitees[i]))
                         {
-                            //validate location
-                            if (meetingLocations[z].getName().Equals(slotFormat[0]))
-                            {
-                                slotsList.Add(new Slot(meetingLocations[z], slotFormat[1]));
-                                slotsExists = true;
-                            }
+                            usersExists = true;
+                            users.Add(clientsList[j].getUser());
                         }
-                        slotNotFound = slots[x];
                     }
-                }
-                else
-                {
-                    slotsExists = false;
-                }
-                if (slotsExists)
-                {
-                    finalExists = true;
-
-                    mp = new MeetingProposal(getCurrMPId() + 1, user, topic, minParticipants, slotsList, users);
-                    meetingProposals.Add(mp);
-                    user.addMyMP(mp);
-                    currMPId++;
-                    Console.WriteLine("Meeting " + mp.getMPTopic() + " created successfully.");
-                    message = "Meeting " + mp.getMPTopic() + " created successfully.";
-
-                }
-                else
-                {
-                    message = "Slot " + slotNotFound + " doesn't exist";
+                    userNotFound = invitees[i];
                 }
             }
             else
             {
-                message = "User " + userNotFound + " doesn't exist";
+                usersExists = false;
             }
-        }
-        else
-        {
-            message = "Meeting with that topic already exists";
-        }
-        ic.setUser(user);
-        return new Message(finalExists, mp, message);
-    }
-
-
-
-    private Message AddUserToProposal(String meetingTopic, string username, string[] slots)
-    {
-        IClient ic = findClient(username);
-        User user = ic.getUser();
-        List<Slot> slotsList = new List<Slot>();
-        foreach (string slotUnformat in slots)
-        {
-            string[] slotFormat = slotUnformat.Split(
-               new[] { ";" },
-               StringSplitOptions.None);
-            MeetingLocation meetingLocation = null;
-            foreach (MeetingLocation ml in GetAvailableMeetingLocations())
+            Boolean topicExists = false;
+            foreach (MeetingProposal meetingprop in meetingProposals)
             {
-                if (ml.getName() == slotFormat[0])
+                if (meetingprop.getMPTopic() == topic)
                 {
-                    meetingLocation = ml;
-                    slotsList.Add(new Slot(meetingLocation, slotFormat[1]));
+                    topicExists = true;
                 }
             }
-        }
-
-        foreach (MeetingProposal mp in meetingProposals)
-        {
-            if (mp.getMPTopic() == meetingTopic)
+            if (!topicExists)
             {
-                if (mp.canJoin(user))
+                if (usersExists || invitees.Length == 0)
                 {
-                    mp.addMeetingRec(user, slotsList);
-                    user.addActiveMP(mp);
-                    Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
-                }
-                else
-                {
-                    Console.WriteLine("User " + user.getName() + " failed joining meeting " + meetingTopic + ". Meeting is restricted.");
-                }
-                //ID of MeetingProposal found: return 1
-                ic.setUser(user);
-                return new Message(mp.canJoin(user), 1, "");
-            }
-        }
-        //No ID of MeetingProposal found: return 0
-        ic.setUser(user);
-        return new Message(false, 0, "User " + user.getName() + " failed joining meeting " + meetingTopic + ". Topic not found.");
-    }
-
-    private void AddMeetingLocation(string location)
-    {
-        MeetingLocation ml = new MeetingLocation(location);
-        meetingLocations.Add(ml);
-    }
-
-    private Message CloseMeetingProposal(String meetingTopic, string username)
-    {
-        IClient ic = findClient(username);
-        User user = ic.getUser();
-        foreach (MeetingProposal mp in meetingProposals)
-        {
-            if (mp.getMPTopic() == meetingTopic)
-            {
-                if (mp.getStatus() == MeetingProposal.Status.Open)
-                {
-                    Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
-                    user.removeMyMP(mp);
-                    Console.WriteLine("---Meeting removed from user's myMP list.");
-                    foreach (IClient ict in clientsList)
+                    //if all invitees exists, validate slot list
+                    Boolean slotsExists = true;
+                    string slotNotFound = "";
+                    List<Slot> slotsList = new List<Slot>();
+                    if (slots.Length > 0)
                     {
-                        ict.getUser().removeActiveMP(mp);
-                    }
-                    Console.WriteLine("---Meeting removed from all users activeMP list.");
-                    Tuple<Boolean, String> dm = DecideMeeting(mp);
-                    if (dm.Item1)
-                    {
-                        mp.setStatus(MeetingProposal.Status.Closed);
-                        Console.WriteLine("---Meeting closed successfully.");
-                        Console.WriteLine(dm.Item2);
-                        ic.setUser(user);
-                        return new Message(true, dm.Item2, "Meeting closed successfully.");
+                        for (int x = 0; x < slots.Length && slotsExists; x++)
+                        {
+                            string[] slotFormat = slots[x].Split(
+                               new[] { ";" },
+                               StringSplitOptions.None);
+                            slotsExists = false;
+                            for (int z = 0; z < meetingLocations.Count && !slotsExists; z++)
+                            {
+                                //validate location
+                                if (meetingLocations[z].getName().Equals(slotFormat[0]))
+                                {
+                                    slotsList.Add(new Slot(meetingLocations[z], slotFormat[1]));
+                                    slotsExists = true;
+                                }
+                            }
+                            slotNotFound = slots[x];
+                        }
                     }
                     else
                     {
-                        mp.setStatus(MeetingProposal.Status.Cancelled);
-                        Console.WriteLine("---Meeting cancelled.");
-                        ic.setUser(user);
-                        return new Message(true, null, "Meeting cancelled.");
+                        slotsExists = false;
+                    }
+                    if (slotsExists)
+                    {
+                        finalExists = true;
+
+                        mp = new MeetingProposal(getCurrMPId() + 1, user, topic, minParticipants, slotsList, users);
+                        meetingProposals.Add(mp);
+                        user.addMyMP(mp);
+                        currMPId++;
+                        Console.WriteLine("Meeting " + mp.getMPTopic() + " created successfully.");
+                        message = "Meeting " + mp.getMPTopic() + " created successfully.";
+
+                    }
+                    else
+                    {
+                        message = "Slot " + slotNotFound + " doesn't exist";
+                    }
+                }
+                else
+                {
+                    message = "User " + userNotFound + " doesn't exist";
+                }
+            }
+            else
+            {
+                message = "Meeting with that topic already exists";
+            }
+            ic.setUser(user);
+            return new Message(finalExists, mp, message);
+        }
+
+
+
+        private Message AddUserToProposal(String meetingTopic, string username, string[] slots)
+        {
+            IClient ic = findClient(username);
+            User user = ic.getUser();
+            List<Slot> slotsList = new List<Slot>();
+            foreach (string slotUnformat in slots)
+            {
+                string[] slotFormat = slotUnformat.Split(
+                   new[] { ";" },
+                   StringSplitOptions.None);
+                MeetingLocation meetingLocation = null;
+                foreach (MeetingLocation ml in GetAvailableMeetingLocations())
+                {
+                    if (ml.getName() == slotFormat[0])
+                    {
+                        meetingLocation = ml;
+                        slotsList.Add(new Slot(meetingLocation, slotFormat[1]));
                     }
                 }
             }
-        }
-        ic.setUser(user);
 
-        return new Message(true, null, "Meeting to close not found.");
-    }
-
-    // decide meeting place and location based on the users that are going to attend
-    // as well as the location and dates they chose
-
-    // with this in the meeting locations we have to check if the rooms is gonna be occupied for the day
-    // and if its not we have to record the unavailability
-    private Tuple<Boolean, String> DecideMeeting(MeetingProposal mp)
-    {
-        //Identify the most popular slot
-        List<Tuple<Slot, int>> popularSlots = new List<Tuple<Slot, int>>();
-        List<User> lu = new List<User>();
-        for (int i = 0; i < mp.getSlots().Count(); i++)
-        {
-            popularSlots.Add(Tuple.Create(mp.getSlots()[i], 0));
-            foreach (MeetingRecord mr in mp.GetMeetingRecords())
+            foreach (MeetingProposal mp in meetingProposals)
             {
-                if (!lu.Contains(mr.GetUser()))
+                if (mp.getMPTopic() == meetingTopic)
                 {
-                    lu.Add(mr.GetUser());
-                }
-                foreach (Slot s in mr.GetSlots())
-                {
-                    if (s.GetDate().Equals(mp.getSlots()[i].GetDate()) && s.GetMeetingLocation().getName().Equals(mp.getSlots()[i].GetMeetingLocation().getName()))
+                    if (mp.canJoin(user))
                     {
-                        popularSlots[i] = new Tuple<Slot, int>(popularSlots[i].Item1, popularSlots[i].Item2 + 1);
+                        mp.addMeetingRec(user, slotsList);
+                        user.addActiveMP(mp);
+                        Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
                     }
+                    else
+                    {
+                        Console.WriteLine("User " + user.getName() + " failed joining meeting " + meetingTopic + ". Meeting is restricted.");
+                    }
+                    //ID of MeetingProposal found: return 1
+                    ic.setUser(user);
+                    return new Message(mp.canJoin(user), 1, "");
                 }
             }
+            //No ID of MeetingProposal found: return 0
+            ic.setUser(user);
+            return new Message(false, 0, "User " + user.getName() + " failed joining meeting " + meetingTopic + ". Topic not found.");
         }
-        popularSlots.OrderBy(x => x.Item2).ToList();
-        //Evaluate if Location is free
-        foreach (Tuple<Slot, int> tuple in popularSlots)
+
+        private Message CloseMeetingProposal(String meetingTopic, string username)
         {
-            MeetingLocation location = tuple.Item1.GetMeetingLocation();
-            String time = tuple.Item1.GetDate();
-            foreach (MeetingLocation ml in meetingLocations)
+            IClient ic = findClient(username);
+            User user = ic.getUser();
+            foreach (MeetingProposal mp in meetingProposals)
             {
-                foreach (MeetingRoom mr in ml.GetMeetingRooms())
+                if (mp.getMPTopic() == meetingTopic)
                 {
-                    //If meeting room is free in desired location
-                    if (!mr.isBooked(time))
+                    if (mp.getStatus() == MeetingProposal.Status.Open)
                     {
-                        //If number of participants is equal or larger than the minimum number of participants specified in the proposal
-                        if (lu.Count >= mp.getMinParticipants())
+                        Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
+                        user.removeMyMP(mp);
+                        Console.WriteLine("---Meeting removed from user's myMP list.");
+                        foreach (IClient ict in clientsList)
                         {
-                            //If number of registered users is bigger than room capacity
-                            if (lu.Count > mr.GetCapacity())
-                            {
-                                //Exclude last n users
-                                int noToExclude = lu.Count - mr.GetCapacity();
-                                User[] usersToExclude = new User[noToExclude];
-                                for (int i = 0; i < noToExclude; i++)
-                                {
-                                    usersToExclude[i] = lu.ElementAt(lu.Count - 1);
-                                }
-                                for (int i = 0; i < noToExclude; i++)
-                                {
-                                    lu.RemoveAll(user => user == usersToExclude[i]);
-                                    Console.WriteLine("User " + usersToExclude[i].getName() + " excluded from meeting.");
-                                }
-                            }
-                            //Book room
-                            mr.book(time);
-                            //Add users to participants list
-                            foreach (IClient ic in clientsList)
-                            {
-                                if (lu.Contains(ic.getUser()))
-                                {
-                                    mp.addUserToMeetingParticipants(ic.getUser());
-                                }
-                            }
-                            return Tuple.Create(true, "Room " + mr.GetName() + " in " + ml.getName() + " booked on " + time);
+                            ict.getUser().removeActiveMP(mp);
+                        }
+                        Console.WriteLine("---Meeting removed from all users activeMP list.");
+                        Tuple<Boolean, String> dm = DecideMeeting(mp);
+                        if (dm.Item1)
+                        {
+                            mp.setStatus(MeetingProposal.Status.Closed);
+                            Console.WriteLine("---Meeting closed successfully.");
+                            Console.WriteLine(dm.Item2);
+                            ic.setUser(user);
+                            return new Message(true, dm.Item2, "Meeting closed successfully.");
+                        }
+                        else
+                        {
+                            mp.setStatus(MeetingProposal.Status.Cancelled);
+                            Console.WriteLine("---Meeting cancelled.");
+                            ic.setUser(user);
+                            return new Message(true, null, "Meeting cancelled.");
                         }
                     }
                 }
             }
+            ic.setUser(user);
+
+            return new Message(true, null, "Meeting to close not found.");
         }
-        return Tuple.Create(false, "");
-    }
 
-    private int getCurrMPId()
-    {
-        return currMPId;
-    }
+        // decide meeting place and location based on the users that are going to attend
+        // as well as the location and dates they chose
 
-    private List<MeetingProposal> getJoinableMP(String username)
-    {
-        IClient ic = findClient(username);
-        User user = ic.getUser();
-        List<MeetingProposal> mps = new List<MeetingProposal>();
-        foreach (MeetingProposal mp in meetingProposals)
+        // with this in the meeting locations we have to check if the rooms is gonna be occupied for the day
+        // and if its not we have to record the unavailability
+        private Tuple<Boolean, String> DecideMeeting(MeetingProposal mp)
         {
-            if (mp.canJoin(user))
+            //Identify the most popular slot
+            List<Tuple<Slot, int>> popularSlots = new List<Tuple<Slot, int>>();
+            List<User> lu = new List<User>();
+            for (int i = 0; i < mp.getSlots().Count(); i++)
             {
-                mps.Add(mp);
+                popularSlots.Add(Tuple.Create(mp.getSlots()[i], 0));
+                foreach (MeetingRecord mr in mp.GetMeetingRecords())
+                {
+                    if (!lu.Contains(mr.GetUser()))
+                    {
+                        lu.Add(mr.GetUser());
+                    }
+                    foreach (Slot s in mr.GetSlots())
+                    {
+                        if (s.GetDate().Equals(mp.getSlots()[i].GetDate()) && s.GetMeetingLocation().getName().Equals(mp.getSlots()[i].GetMeetingLocation().getName()))
+                        {
+                            popularSlots[i] = new Tuple<Slot, int>(popularSlots[i].Item1, popularSlots[i].Item2 + 1);
+                        }
+                    }
+                }
             }
-        }
-        return mps;
-    }
-
-    public void AddMeetingRoom(string location, string room, int capacity)
-    {
-        foreach (MeetingLocation loc in meetingLocations)
-        {
-            if (loc.getName().Equals(location))
+            popularSlots.OrderBy(x => x.Item2).ToList();
+            //Evaluate if Location is free
+            foreach (Tuple<Slot, int> tuple in popularSlots)
             {
-                loc.addRoom(new MeetingRoom(room, capacity));
+                MeetingLocation location = tuple.Item1.GetMeetingLocation();
+                String time = tuple.Item1.GetDate();
+                foreach (MeetingLocation ml in meetingLocations)
+                {
+                    foreach (MeetingRoom mr in ml.GetMeetingRooms())
+                    {
+                        //If meeting room is free in desired location
+                        if (!mr.isBooked(time))
+                        {
+                            //If number of participants is equal or larger than the minimum number of participants specified in the proposal
+                            if (lu.Count >= mp.getMinParticipants())
+                            {
+                                //If number of registered users is bigger than room capacity
+                                if (lu.Count > mr.GetCapacity())
+                                {
+                                    //Exclude last n users
+                                    int noToExclude = lu.Count - mr.GetCapacity();
+                                    User[] usersToExclude = new User[noToExclude];
+                                    for (int i = 0; i < noToExclude; i++)
+                                    {
+                                        usersToExclude[i] = lu.ElementAt(lu.Count - 1);
+                                    }
+                                    for (int i = 0; i < noToExclude; i++)
+                                    {
+                                        lu.RemoveAll(user => user == usersToExclude[i]);
+                                        Console.WriteLine("User " + usersToExclude[i].getName() + " excluded from meeting.");
+                                    }
+                                }
+                                //Book room
+                                mr.book(time);
+                                //Add users to participants list
+                                foreach (IClient ic in clientsList)
+                                {
+                                    if (lu.Contains(ic.getUser()))
+                                    {
+                                        mp.addUserToMeetingParticipants(ic.getUser());
+                                    }
+                                }
+                                return Tuple.Create(true, "Room " + mr.GetName() + " in " + ml.getName() + " booked on " + time);
+                            }
+                        }
+                    }
+                }
             }
+            return Tuple.Create(false, "");
         }
-    }
-    private List<MeetingRoom> GetAvailableMeetingRooms()
-    {
-        List<MeetingRoom> mrs = new List<MeetingRoom>();
-        foreach (MeetingLocation ml in meetingLocations)
+
+        private int getCurrMPId()
         {
-            mrs.AddRange(ml.GetMeetingRooms());
+            return currMPId;
         }
-        return mrs;
-    }
 
-    private List<MeetingLocation> GetAvailableMeetingLocations()
-    {
-        return meetingLocations;
-    }
-
-    //should be called on client-side each time an user is updated 
-    private IClient findClient(String username)
-    {
-        foreach (IClient ic in clientsList)
+        private List<MeetingProposal> getJoinableMP(String username)
         {
-            if (ic.getUser().getName().Equals(username))
+            IClient ic = findClient(username);
+            User user = ic.getUser();
+            List<MeetingProposal> mps = new List<MeetingProposal>();
+            foreach (MeetingProposal mp in meetingProposals)
             {
-                return ic;
+                if (mp.canJoin(user))
+                {
+                    mps.Add(mp);
+                }
             }
+            return mps;
         }
-        return null;
-    }
+        private List<MeetingRoom> GetAvailableMeetingRooms()
+        {
+            List<MeetingRoom> mrs = new List<MeetingRoom>();
+            foreach (MeetingLocation ml in meetingLocations)
+            {
+                mrs.AddRange(ml.GetMeetingRooms());
+            }
+            return mrs;
+        }
 
-    private Message GetServerId()
-    {
-        return new Message(true, null, server.GetId());
-    }
+        private List<MeetingLocation> GetAvailableMeetingLocations()
+        {
+            return meetingLocations;
+        }
 
-    public void freeze()
-    {
+        //should be called on client-side each time an user is updated 
+        private IClient findClient(String username)
+        {
+            foreach (IClient ic in clientsList)
+            {
+                if (ic.getUser().getName().Equals(username))
+                {
+                    return ic;
+                }
+            }
+            return null;
+        }
+
+        private Message GetServerId()
+        {
+            return new Message(true, null, server.GetId());
+        }
+
+        public void freeze()
+        {
 
             Console.WriteLine("This server is frozen");
             frozenRequests = 0;
             isFrozen = true;
-    }
+        }
 
-    public void unfreeze() {
+        public void unfreeze()
+        {
 
             Console.WriteLine("This server unfroze");
 
@@ -416,10 +396,10 @@ namespace Server
             this.handler.Set();
             this.handler.Reset();
         }
-    
-    public void status()
+
+        public void status()
         {
-            foreach ( IClient ic in clientsList) 
+            foreach (IClient ic in clientsList)
             {
                 ic.status();
             }
@@ -431,12 +411,12 @@ namespace Server
             else
             {
                 Console.WriteLine("Server: " + server.GetId() + " is online and unfrozen.");
-            
+
             }
             Console.WriteLine();
             Console.WriteLine("The backup server(s) are : ");
 
-            foreach(KeyValuePair<string,string> entry in server.getView())
+            foreach (KeyValuePair<string, string> entry in server.getView())
             {
                 Console.WriteLine("ID: " + entry.Key + " URL: " + entry.Value);
             }
@@ -449,103 +429,104 @@ namespace Server
             }
 
         }
-    // this has to work for every request
-    // this handles multi-threading
-    public Message Response(String request, List<String> args)//Request request)
-    {
-        int delay = seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
-
-        Thread.Sleep(delay);
-
-        Message mess;
-
-        if (isFrozen)
+        // this has to work for every request
+        // this handles multi-threading
+        public Message Response(String request, List<String> args)//Request request)
         {
+            int delay = seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
 
-            this.IncrementFrozenRequests();
-            while (this.isFrozen)
+            Thread.Sleep(delay);
+
+            Message mess;
+
+            if (isFrozen)
             {
+
+                this.IncrementFrozenRequests();
+                while (this.isFrozen)
+                {
                     this.handler.WaitOne();
-            }
-            Console.WriteLine("carambolas");
-            mess = requestHandle(request, args);
+                }
+                Console.WriteLine("carambolas");
+                mess = requestHandle(request, args);
 
-            this.DecrementFrozenRequests();
-            this.frozenRequestsHandler.Set();
-            this.frozenRequestsHandler.Reset();
-        }
-        else
-        {
-            while (this.frozenRequests > 0)
+                this.DecrementFrozenRequests();
+                this.frozenRequestsHandler.Set();
+                this.frozenRequestsHandler.Reset();
+            }
+            else
             {
-                this.frozenRequestsHandler.WaitOne();
+                while (this.frozenRequests > 0)
+                {
+                    this.frozenRequestsHandler.WaitOne();
+                }
+
+                mess = requestHandle(request, args);
             }
 
-            mess = requestHandle(request, args);
+            return mess;
         }
 
-        return mess;
-    }
+        public Message requestHandle(String request, List<String> args)
+        {
 
-    public Message requestHandle(String request, List<String> args)
-    {
-
-        Message mess;
-        if (request == "Register") // register
-        {
-            mess = Register(args[0]);
-        }
-        else if (request == "CloseMeetingProposal") // close
-        {
-            mess = CloseMeetingProposal(args[0], args[1]);
-        }
-        else if (request == "AddMeetingProposal") //create
-        {
-            String username = args[0];
-            String topic = args[1];
-            int minPart = Int32.Parse(args[2]);
-            int slotsSize = Int32.Parse(args[3]);
-            String[] slots = new string[slotsSize];
-            for (int i = 0; i < slotsSize; i++)
+            Message mess;
+            if (request == "Register") // register
             {
-                slots[i] = args[4 + i];
+                mess = Register(args[0]);
             }
-            int inviteesSize = Int32.Parse(args[4 + slotsSize]);
-            String[] invitees = new string[inviteesSize];
-            for (int i = 0; i < inviteesSize; i++)
+            else if (request == "CloseMeetingProposal") // close
             {
-                invitees[i] = args[4 + slotsSize + i];
+                mess = CloseMeetingProposal(args[0], args[1]);
             }
-            mess = AddMeetingProposal(topic, minPart, slots, invitees, username);
-        }
-        else if (request == "AddUserToProposal") //join 
-        {
-            string[] slots = args[2].Split(' ');
+            else if (request == "AddMeetingProposal") //create
+            {
+                String username = args[0];
+                String topic = args[1];
+                int minPart = Int32.Parse(args[2]);
+                int slotsSize = Int32.Parse(args[3]);
+                String[] slots = new string[slotsSize];
+                for (int i = 0; i < slotsSize; i++)
+                {
+                    slots[i] = args[4 + i];
+                }
+                int inviteesSize = Int32.Parse(args[4 + slotsSize]);
+                String[] invitees = new string[inviteesSize];
+                for (int i = 0; i < inviteesSize; i++)
+                {
+                    invitees[i] = args[4 + slotsSize + i];
+                }
+                mess = AddMeetingProposal(topic, minPart, slots, invitees, username);
+            }
+            else if (request == "AddUserToProposal") //join 
+            {
+                string[] slots = args[2].Split(' ');
                 foreach (String s in slots) Console.WriteLine(s);
-            mess = AddUserToProposal(args[0], args[1], slots); 
-        }
-        else if (request == "GetServerId") //get serverID 
-        {
+                mess = AddUserToProposal(args[0], args[1], slots);
+            }
+            else if (request == "GetServerId") //get serverID 
+            {
                 mess = GetServerId();
-        }
-        else if (request == "RemoveServerFromView") //get serverID
-        {
-            mess = removeServerFromView(args);
-        }
-        else if(request == "GetSharedClientsList"){
-            mess = getSharedClientsList();
-        }
-        else
-        {
-            mess = new Message(false, null, "Operation not supported by the Server");
-        }
+            }
+            else if (request == "RemoveServerFromView") //get serverID
+            {
+                mess = removeServerFromView(args);
+            }
+            else if (request == "GetSharedClientsList")
+            {
+                mess = getSharedClientsList();
+            }
+            else
+            {
+                mess = new Message(false, null, "Operation not supported by the Server");
+            }
 
-        return mess;
-    }
-    public void initializeView(String serverid, String serverurl)
-    {
-        server.updateView("add", serverid, serverurl);
-    }
+            return mess;
+        }
+        public void initializeView(String serverid, String serverurl)
+        {
+            server.updateView("add", serverid, serverurl);
+        }
 
         public void addServerToView(String serverid, String serverurl)
         {
@@ -582,7 +563,7 @@ namespace Server
 
         public Message removeServerFromView(List<String> serverurls)
         {
-            foreach(String serverurl in serverurls)
+            foreach (String serverurl in serverurls)
             {
                 if (server.getView().IndexOfValue(serverurl) != -1)
                 {
@@ -639,25 +620,28 @@ namespace Server
                     }
                 }
 
-                
+
             }
             return new Message(true, null, "");
         }
 
         //Get client urls from the server
-        public List<string> getClientsList(){
+        public List<string> getClientsList()
+        {
 
             List<string> list = new List<string>();
 
             //Gather all the clients registered on this server
-            foreach(IClient c in clientsList){
+            foreach (IClient c in clientsList)
+            {
                 list.Add(c.getClientURL());
             }
             return list;
         }
 
         //Get client urls from the server plus one alive from backup
-        public Message getSharedClientsList(){
+        public Message getSharedClientsList()
+        {
 
             List<string> list = null;
             List<string> auxList = null;
@@ -672,21 +656,23 @@ namespace Server
             {
                 try
                 {
-                    bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);  
+                    bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
                 }
                 catch (Exception e)
                 {
-                    if(indexBackupUpdate + 1 < server.getBackupServer().Length)
+                    if (indexBackupUpdate + 1 < server.getBackupServer().Length)
                     {
                         bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate + 1]);
                     }
                 }
             }
 
-            if(bscli != null){
+            if (bscli != null)
+            {
                 //get the clients list from the found backup server
                 auxList = bscli.getClientsList();
-                if(auxList.Count() != 0){
+                if (auxList.Count() != 0)
+                {
                     list.Add(auxList[0]);
                 }
             }
@@ -699,5 +685,10 @@ namespace Server
         {
             return null;
         }
+
+        public void updateLocations(List<MeetingLocation> mls)
+        {
+            meetingLocations = mls;
+        }
     }
-    }
+}

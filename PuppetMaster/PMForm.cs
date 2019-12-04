@@ -1,6 +1,7 @@
 ﻿using Client;
 using PCS;
 using Server;
+using Library;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -31,6 +32,8 @@ namespace PuppetMaster
 
         int serverNo = 1, clientNo = 1;
 
+        List<MeetingLocation> meetingLocations = new List<MeetingLocation>();
+
         public PMForm()
         {
             InitializeComponent();
@@ -38,6 +41,8 @@ namespace PuppetMaster
             addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') +"/mcm";
             username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
             clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
+
+            locationNameNew.Visible = false;
         }
 
         // We gonna use the PCS here to create a Server
@@ -243,6 +248,71 @@ namespace PuppetMaster
             ps.unfreeze();
         }
 
+        private void locationNameNew_Enter(object sender, EventArgs e)
+        {
+            if (locationNameNew.Text == "Name of location...")
+            {
+                locationNameNew.Text = "";
+            }
+        }
+
+        private void locationNameNew_Leave(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(locationNameNew.Text))
+            {
+                locationNameNew.Text = "Name of location...";
+            }   
+        }
+
+        private void locationName_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(locationName.SelectedItem == "Add location")
+            {
+                locationNameNew.Visible = true;
+            } else
+            {
+                locationNameNew.Visible = false;
+            }
+        }
+
+        private void addRoom_Click(object sender, EventArgs e)
+        {
+            if(locationName.SelectedItem == "Add location")
+            {
+                MeetingLocation ml = new MeetingLocation(locationNameNew.Text);
+                ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
+                meetingLocations.Add(ml);
+            }
+            else
+            {
+                foreach(MeetingLocation ml in meetingLocations)
+                {
+                    if(ml.getName() == locationName.SelectedItem)
+                    {
+                        ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
+                    }
+                }
+            }
+            updateMeetingLocationsOnAllServers();
+            locationName.Items.Clear();
+            foreach(MeetingLocation ml in meetingLocations)
+            {
+                locationName.Items.Add(ml.getName() + " (" + ml.getRoomsCount() + ")");
+            }
+            locationName.Items.Add("Add location");
+        }
+
+        private void updateMeetingLocationsOnAllServers()
+        {
+            foreach (String url in urlServers.Values)
+            {
+                Uri myUri = new Uri(url);
+                String psURLHost = myUri.Host;
+                int psURLPort = myUri.Port + 1000;
+                PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+                ps.updateLocations(meetingLocations);
+            }
+        }
 
         private void puppiScript_Click(object sender, EventArgs e)
         {
