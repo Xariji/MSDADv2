@@ -137,7 +137,7 @@ namespace Server
                 {
                     finalExists = true;
 
-                    mp = new MeetingProposal(getCurrMPId() + 1, user, topic, minParticipants, slotsList, users);
+                    mp = new MeetingProposal(server.GetId() + ":" + (getCurrMPId() + 1), user, topic, minParticipants, slotsList, users);
                     meetingProposals.Add(mp);
                     user.addMyMP(mp);
                     currMPId++;
@@ -170,6 +170,8 @@ namespace Server
         IClient ic = findClient(username);
         User user = ic.getUser();
         List<Slot> slotsList = new List<Slot>();
+                    Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
+
         foreach (string slotUnformat in slots)
         {
             string[] slotFormat = slotUnformat.Split(
@@ -186,10 +188,15 @@ namespace Server
             }
         }
 
+        Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
+
+
         foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
             {
+                            Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
+
                 if (mp.canJoin(user))
                 {
                     mp.addMeetingRec(user, slotsList);
@@ -397,7 +404,8 @@ namespace Server
 
     private Message GetServerId()
     {
-        return new Message(true, null, server.GetId());
+        Console.WriteLine("toma la o serverID");
+        return new Message(true, server.GetId(), "");
     }
 
     public void freeze()
@@ -492,6 +500,7 @@ namespace Server
         {
             string[] slots = args[2].Split(' ');
                 foreach (String s in slots) Console.WriteLine(s);
+            Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
             mess = AddUserToProposal(args[0], args[1], slots); 
         }
         else if (request == "GetServerId") //get serverID 
@@ -504,6 +513,9 @@ namespace Server
         }
         else if(request == "GetSharedClientsList"){
             mess = getSharedClientsList();
+        }
+        else if(request == "GetBackupURL"){
+            mess = GetBackupURL(args[0]);
         }
         else
         {
@@ -631,36 +643,36 @@ namespace Server
 
             List<string> list = null;
             List<string> auxList = null;
-            int indexBackupUpdate = 0;
             ServerCli bscli = null;
 
             //get servers clients list
             list = getClientsList();
-
-            //find a active backup server
-            if (!server.getBackupServer()[0].Equals(server.getURL()))
-            {
-                try
+            string[] backupList = server.getBackupServer();
+            //find a active backup server with active clients
+            for(int i=0; i < backupList.Length; i++){
+                if (!server.getBackupServer()[0].Equals(server.getURL()))
                 {
-                    bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);  
-                }
-                catch (Exception e)
-                {
-                    if(indexBackupUpdate + 1 < server.getBackupServer().Length)
+                    try
                     {
-                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate + 1]);
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), backupList[i]);
+                    }
+                    catch (Exception e)
+                    {
+                        if(i + 1 < backupList.Length)
+                        {
+                            bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), backupList[i + 1]);
+                        }
+                    }
+                    if(bscli != null){
+                    //get the clients list from the found backup server
+                        auxList = bscli.getClientsList();
+                        if(auxList.Count() != 0){
+                            list.Add(auxList[0]);
+                        }
                     }
                 }
             }
-
-            if(bscli != null){
-                //get the clients list from the found backup server
-                auxList = bscli.getClientsList();
-                if(auxList.Count() != 0){
-                    list.Add(auxList[0]);
-                }
-            }
-
+       
             return new Message(true, list, "");
 
         }
@@ -668,6 +680,38 @@ namespace Server
         public override object InitializeLifetimeService()
         {
             return null;
+        }
+
+        public Message GetBackupURL(string backupID){
+
+            string[] backupList = server.getBackupServer();
+            string result = null;
+            foreach(string serv in backupList){
+                ServerCli bscli = null;
+                Message bscliMess = null;
+                string bscliID = null;
+                if(!serv.Equals(server.getURL())){
+                    try
+                    {                        
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), serv);
+                        bscliMess = bscli.Response("GetServerId", null);
+                        bscliID = (string) bscliMess.getObj();
+                        if(bscliID.Equals(backupID)){
+                            result = serv;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                    }
+
+                }
+
+            }
+            if(result == null){
+                return new Message(false, null, "Server not found!");
+            } else{
+                return new Message(true, result, "");
+            }
         }
     }
     }

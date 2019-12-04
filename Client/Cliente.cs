@@ -22,8 +22,6 @@ namespace Client
         private String script;
         private String[] sURLBackup;
 
-        private List<MeetingProposal> myProposals;
-
         public delegate string RemoteAsyncDelegate();
 
         //Usage: put as args: <username> <scriptPath>
@@ -168,7 +166,6 @@ namespace Client
                 //Message output = server.Response("AddMeetingProposal", args);
                 if (output.getSucess())
                 {
-                    this.myProposals.Add((MeetingProposal)output.getObj()); // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
                     Console.WriteLine("Proposal created with success");
                     ShareProposal((MeetingProposal) output.getObj());
                 }
@@ -240,8 +237,42 @@ namespace Client
                 Console.WriteLine("No slots input");
                 return;
             }
+            //find meeting proposal
+            MeetingProposal mp = null;
+            foreach(MeetingProposal m in cs.getUser().getMyMP()){
+                if(m.getMPTopic().Equals(meetingTopic)){
+                    mp = m;
+                }
+            }
 
-            //Tuple<Boolean, int> output = server.AddUserToProposal(meetingTopic, GetName(), slots);
+            if(mp == null){
+                Console.WriteLine("Meeting proposal not found!");
+                return;
+            }
+
+            ISchedulingServer otherServer = null;
+            //look for the url
+            string[] split = mp.getMPId().Split(
+                   new[] { ":" },
+                   StringSplitOptions.None);
+            Message msgURLs = server.Response("GetServerId", null);
+            if(!msgURLs.getSucess()){
+                Console.WriteLine(msgURLs.getMessage());
+                return;
+            }
+            string joinURL = (string) msgURLs.getObj();
+            if(joinURL.Equals(split[0])){
+                otherServer = server;
+            } else {
+                List<string> auxArgs = new List<string>();
+                auxArgs.Add(split[0]);
+                Message urlMess = server.Response("GetBackupURL", auxArgs);
+                if(urlMess.getSucess()){
+                    otherServer = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), (string)urlMess.getObj());
+                } else {
+                    Console.WriteLine(urlMess.getMessage());
+                }    
+            }
 
             List<String> args = new List<String>();
             args.Add(meetingTopic);
@@ -250,7 +281,7 @@ namespace Client
 
             try
             {
-                Message output = server.Response("AddUserToProposal", args);
+                Message output = otherServer.Response("AddUserToProposal", args);
                 if (output.getSucess())
                 {
                     Console.WriteLine("Meeting " + meetingTopic + " joined successfully.");

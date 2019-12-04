@@ -13,7 +13,7 @@ namespace Library
             Closed,
             Cancelled
         }
-        private int id;
+        private string id;
         private Status status; 
         private User coordinator;
         private String topic;
@@ -23,7 +23,7 @@ namespace Library
         private List<MeetingRecord> meetingRecs;
         private List<User> meetingParticipants;
 
-        public MeetingProposal(int id, User coordinator, string topic, int minParticipants, List<Slot> slots, List<User> invitees )
+        public MeetingProposal(string id, User coordinator, string topic, int minParticipants, List<Slot> slots, List<User> invitees )
         {
             this.id = id;
             this.status = Status.Open;
@@ -80,7 +80,7 @@ namespace Library
             return fs.ToString();
         }
 
-        public int getMPId()
+        public string getMPId()
         {
             return id;
         }
