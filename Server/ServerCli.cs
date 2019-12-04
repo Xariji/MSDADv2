@@ -169,7 +169,6 @@ namespace Server
     {
         IClient ic = findClient(username);
         User user = ic.getUser();
-
         List<Slot> slotsList = new List<Slot>();
         foreach (string slotUnformat in slots)
         {
@@ -185,8 +184,6 @@ namespace Server
                     slotsList.Add(new Slot(meetingLocation, slotFormat[1]));
                 }
             }
-
-
         }
 
         foreach (MeetingProposal mp in meetingProposals)
@@ -211,7 +208,6 @@ namespace Server
         //No ID of MeetingProposal found: return 0
         ic.setUser(user);
         return new Message(false, 0, "User " + user.getName() + " failed joining meeting " + meetingTopic + ". Topic not found.");
-
     }
 
     private void AddMeetingLocation(string location)
@@ -258,7 +254,6 @@ namespace Server
             }
         }
         ic.setUser(user);
-
 
         return new Message(true, null, "Meeting to close not found.");
     }
@@ -428,8 +423,6 @@ namespace Server
     // this handles multi-threading
     public Message Response(String request, List<String> args)//Request request)
     {
-        Console.WriteLine("Request");
-
         int delay = seedRandom.Next(server.getMinDelay(), server.getMaxDelay());
 
         Thread.Sleep(delay);
@@ -442,7 +435,6 @@ namespace Server
             this.IncrementFrozenRequests();
             while (this.isFrozen)
             {
-                    Console.WriteLine("bolas");
                     this.handler.WaitOne();
             }
             Console.WriteLine("carambolas");
@@ -498,7 +490,8 @@ namespace Server
         }
         else if (request == "AddUserToProposal") //join 
         {
-            string[] slots = args[3].Split(' ');
+            string[] slots = args[2].Split(' ');
+                foreach (String s in slots) Console.WriteLine(s);
             mess = AddUserToProposal(args[0], args[1], slots); 
         }
         else if (request == "GetServerId") //get serverID 
@@ -561,57 +554,62 @@ namespace Server
         {
             foreach(String serverurl in serverurls)
             {
-                String serverid = server.getView().Keys[server.getView().IndexOfValue(serverurl)];
-            
-                //prevent deadlock
-                if (server.getView().ContainsKey(serverid))
+                if (server.getView().IndexOfValue(serverurl) != -1)
                 {
-                    lock (server)
+                    String serverid = server.getView().Keys[server.getView().IndexOfValue(serverurl)];
+
+                    //prevent deadlock
+                    if (server.getView().ContainsKey(serverid))
                     {
-                        Console.WriteLine("-------- BEGIN VIEW UPDATE --------");
-                        server.updateView("remove", serverid, serverurl);
-                        Console.WriteLine("Server removed: " + serverid + " @ " + serverurl);
-                        String backupInfo = server.getBackupServer()[0];
-                        for (int i = 1; i < server.getBackupServer().Length; i++)
+                        lock (server)
                         {
-                            backupInfo += ", " + server.getBackupServer()[i];
-                        }
-                        Console.WriteLine("New Backup-URL: " + backupInfo);
-
-                        if (!server.getBackupServer()[0].Equals(server.getURL()))
-                        {
-                            tryConnectToBackup(0);
-
-                            void tryConnectToBackup(int indexBackupUpdate)
+                            Console.WriteLine("-------- BEGIN VIEW UPDATE --------");
+                            server.updateView("remove", serverid, serverurl);
+                            Console.WriteLine("Server removed: " + serverid + " @ " + serverurl);
+                            String backupInfo = server.getBackupServer()[0];
+                            for (int i = 1; i < server.getBackupServer().Length; i++)
                             {
-                                try
+                                backupInfo += ", " + server.getBackupServer()[i];
+                            }
+                            Console.WriteLine("New Backup-URL: " + backupInfo);
+
+                            if (!server.getBackupServer()[0].Equals(server.getURL()))
+                            {
+                                tryConnectToBackup(0);
+
+                                void tryConnectToBackup(int indexBackupUpdate)
                                 {
-                                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
-                                    bscli.addServerToView(serverid, serverurl);
-                                }
-                                catch (Exception e)
-                                {
-                                    if (indexBackupUpdate + 1 < server.getBackupServer().Length)
+                                    try
                                     {
-                                        tryConnectToBackup(indexBackupUpdate + 1);
+                                        ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
+                                        bscli.addServerToView(serverid, serverurl);
                                     }
-                                    else
+                                    catch (Exception e)
                                     {
-                                        Console.WriteLine("Error: No Backup-server reachable!");
+                                        if (indexBackupUpdate + 1 < server.getBackupServer().Length)
+                                        {
+                                            tryConnectToBackup(indexBackupUpdate + 1);
+                                        }
+                                        else
+                                        {
+                                            Console.WriteLine("Error: No Backup-server reachable!");
+                                        }
                                     }
                                 }
                             }
+                            //send command to update backup server to clients
+                            foreach (IClient client in clientsList)
+                            {
+                                client.setBackupServerURL(server.getBackupServer());
+                            }
+                            Console.WriteLine("Backup server in " + clientsList.Count + " client(s) updated.");
+                            Console.WriteLine("--------- END VIEW UPDATE ---------");
                         }
-                        //send command to update backup server to clients
-                        foreach (IClient client in clientsList)
-                        {
-                            client.setBackupServerURL(server.getBackupServer());
-                        }
-                        Console.WriteLine("Backup server in " + clientsList.Count + " client(s) updated.");
-                        Console.WriteLine("--------- END VIEW UPDATE ---------");
-                    }
 
+                    }
                 }
+
+                
             }
             return new Message(true, null, "");
         }
@@ -667,5 +665,9 @@ namespace Server
 
         }
 
+        public override object InitializeLifetimeService()
+        {
+            return null;
+        }
     }
     }

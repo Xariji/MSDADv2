@@ -30,21 +30,6 @@ namespace Server
             this.view = new SortedList<String, String>();
         }
 
-        public void start() {
-
-            Uri myUri = new Uri(URL);
-
-            TcpChannel channel = new TcpChannel(myUri.Port);
-            ChannelServices.RegisterChannel(channel, false);
-
-            SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
-            ServerCli mo = new ServerCli(server);
-            RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
-            Console.WriteLine("Server " + this.id +" started on Port " + myUri.Port);
-            System.Console.ReadLine();
-
-        }
-
         public static void Main(string[] args)
         {
 

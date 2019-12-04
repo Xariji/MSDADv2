@@ -25,12 +25,17 @@ namespace PuppetMaster
 
         Dictionary<String, Process> sProcesses = new Dictionary<string, Process>();
 
-
         String scriptPath = "";
+
+        int serverNo = 1, clientNo = 1;
 
         public PMForm()
         {
             InitializeComponent();
+            addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
+            addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') +"/mcm";
+            username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
+            clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
         }
 
         // We gonna use the PCS here to create a Server
@@ -58,12 +63,6 @@ namespace PuppetMaster
 
             if (hostIPs.Any(hostIP => IPAddress.IsLoopback(hostIP) || localIPs.Contains(hostIP))) // we can directly create the server because is 
             {
-                // we should make an interface for the PuppetMaster to communicate
-                // directly with the server
-
-                //SchedulingServer ss = new SchedulingServer(serverID, URL, maxFaults, minDelay, maxDelay);
-                //ss.start();             
-                
                 var process = new Process
                 {
                     StartInfo = new ProcessStartInfo
@@ -75,13 +74,12 @@ namespace PuppetMaster
                 };
 
                 process.Start();
-                String name = process.ProcessName; // we save the process and the name
                 sProcesses.Add(serverID, process);
             }
-            else
+            else 
             {
-                // pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
-                // pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
+                pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
+                pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
             }
             String psURLHost = myUri.Host;
             int psURLPort = myUri.Port + 1000;
@@ -93,6 +91,10 @@ namespace PuppetMaster
             }
             urlServers.Add(serverID, URL);
             ps.addServerToView(serverID, URL);
+
+            serverNo++;
+            addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
+            addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') + "/mcm";
         }
 
         private void addClient_Click(object sender, EventArgs e)
@@ -112,13 +114,11 @@ namespace PuppetMaster
 
             // get local IP addresses
             IPAddress[] localIPs = Dns.GetHostAddresses(Dns.GetHostName());
+
             // test if any host IP is a loopback IP or is equal to any local IP
-
-
             if (hostIPs.Any(hostIP => IPAddress.IsLoopback(hostIP) || localIPs.Contains(hostIP))) // we can directly create the server because is 
             {
-                //Cliente cc = new Cliente(userName, cURL, sURL, script);
-                //cc.start();
+
                 Process process;
                 if(scriptPath != "")
                 {
@@ -145,18 +145,20 @@ namespace PuppetMaster
                     };
                 }
                 
-
                 process.Start();
 
-
             }
-            else
+            else // its not local
             {
-                //pCs = (PCS)Activator.GetObject(typeof(PCS), IP + "10000"); //TODO can generate new exception
-                //pCs.createClientProcess(userName, cURL, sURL, script);
+                pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000/pcs");
+                pCs.createClientProcess(userName, cURL, sURL, scriptPath);
             }
 
             urlClients.Add(userName, cURL);
+
+            clientNo++;
+            username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
+            clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
         }
 
         private void selectScript_Click(object sender, EventArgs e)
@@ -180,13 +182,21 @@ namespace PuppetMaster
         {
             String serverID = crashID.Text;
 
-            sProcesses.TryGetValue(serverID, out Process pr);
+            if(sProcesses.TryGetValue(serverID, out Process pr))
+            {
+                pr.Kill();
 
-            pr.Kill();
-
-            sProcesses.Remove(serverID);
-            urlServers.Remove(serverID);
-
+                sProcesses.Remove(serverID);
+                urlServers.Remove(serverID);
+            }
+            else // if it's not local we have to call PCS
+            {
+                urlServers.TryGetValue(serverID, out string sURL); 
+                
+                Uri myUri = new Uri(sURL);
+                PCSService pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
+                pCs.crashServer(serverID);
+            }
 
         }
         private void Freeze_Click(object sender, EventArgs e)
