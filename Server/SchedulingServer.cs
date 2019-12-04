@@ -19,6 +19,8 @@ namespace Server
         int minDelay;
         int maxDelay;
         SortedList<String, String> view;
+        Dictionary<String, String> crashedServers;
+
 
         public SchedulingServer(String id, String URL, int maxFaults, int minDelay, int maxDelay)
         {
@@ -28,6 +30,7 @@ namespace Server
             this.minDelay = minDelay;
             this.maxDelay = maxDelay;
             this.view = new SortedList<String, String>();
+            this.crashedServers = new Dictionary<String, String>();
         }
 
         public static void Main(string[] args)
@@ -119,6 +122,10 @@ namespace Server
             return view;
         }
 
+        public Dictionary<String, String> getCrashed()
+        {
+            return crashedServers;
+        }
         public void updateView(String action, String serverid, String serverurl)
         {
             lock (view)
@@ -129,6 +136,7 @@ namespace Server
                         view.Add(serverid, serverurl);
                         break;
                     case "remove":
+                        crashedServers.Add(serverid, serverurl);
                         view.Remove(serverid);
                         break;
                 }

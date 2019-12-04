@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Runtime.Remoting.Channels.Tcp;
 using System.Runtime.Remoting.Channels;
 using System.Runtime.Remoting;
-using System.Runtime.Remoting.Messaging;
 using System.Threading.Tasks;
 
 namespace Client
@@ -16,15 +15,15 @@ namespace Client
         private static ISchedulingServer server;
         private static ClientServ cs;
 
+        private static int timeout = 5000;
+
         private String username;
         private String cURL;
         private String sURL;
         private String script;
         private String[] sURLBackup;
 
-        private List<MeetingProposal> myProposals;
-
-        public delegate string RemoteAsyncDelegate();
+        //private List<MeetingProposal> myProposals;
 
         //Usage: put as args: <username> <scriptPath>
 
@@ -34,6 +33,7 @@ namespace Client
             this.cURL = cURL;
             this.sURL = sURL;
             this.script = script;
+            //this.myProposals = new List<MeetingProposal>();
         }
 
         static void Main(string[] args)
@@ -69,14 +69,14 @@ namespace Client
 
             List<String> arg = new List<String>();
             arg.Add(cURL);
-            Message mess = server.Response("Register", arg);
+            Message mess = server.Response("Register", arg); //TODO we need to check this out as well!!!
             sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 
             if (args.Length == 1 || args.Length == 2)
             {
                 Boolean run = true;
-                Console.WriteLine("Hello, " + cli.GetName() + ". Welcome to MSDAD");
+                Console.WriteLine("Hello, " + username + ". Welcome to MSDAD");
                 Console.WriteLine("Type list to list the user's meeting proposals");
                 Console.WriteLine("Type create <topic> <# of min participants> <# of slots> <# of invitees> [slots] [invitees] to create a new meeting proposal");
                 Console.WriteLine("Type join <meetingTopic> <# of slots> [slots] to join the specific meeting");
@@ -120,21 +120,30 @@ namespace Client
         }
 
 
-        public String GetName()
+        public string GetName()
         {
-            return username;
+            return this.username; 
         }
+
+
+        public string getURL()
+        {
+            return this.cURL; ;
+        }
+
+        public string getSURL()
+        {
+            return this.sURL;
+        }
+
 
         /**
          * Lists all the meeting proposals
          */
         public List<MeetingProposal> ListProposals()
         {
-            return cs.getUser().getMyMP(); 
+            return cs.getMyProp(); 
         }
-
-
-
 
         /**
          * Creates a proposal
@@ -144,55 +153,62 @@ namespace Client
             //Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
 
             List<String> args = new List<String>();
-            args.Add(GetName());
+            args.Add(cs.getUser().getName());
             args.Add(topic);
             args.Add(minParticipants.ToString());
             args.Add(slots.Length.ToString());
             Array.ForEach(slots, args.Add);
             args.Add(invitees.Length.ToString());
             Array.ForEach(invitees, args.Add);
-            Message output = null;
-
-            //TODO
-            // could add some cancelation tokens but i believe it's not necessary
-            // also we could add a timeout so we don't crash and know what is happening
-            // i think this is asynchronos but still when the server is crashed it can't "send" more requests;
-
-            Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("AddMeetingProposal", args));
-
+            Message output;
             try
             {
-                task.Wait();
-                output = task.Result;
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("AddMeetingProposal", args));
+                bool taskCompleted = task.Wait(timeout);
 
-                //Message output = server.Response("AddMeetingProposal", args);
-                if (output.getSucess())
+                if (taskCompleted)
                 {
-                    this.myProposals.Add((MeetingProposal)output.getObj()); // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
-                    Console.WriteLine("Proposal created with success");
-                    ShareProposal((MeetingProposal) output.getObj());
-                }
-                else
-                {
-                    Console.WriteLine(output.getMessage());
+                    output = task.Result;
+
+                    //Message output = server.Response("AddMeetingProposal", args);
+                    if (output.getSucess())
+                    {
+                        //this.myProposals.Add((MeetingProposal)output.getObj());
+                        cs.getUser().addMyMP((MeetingProposal)output.getObj());
+                        // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
+                        Console.WriteLine("Proposal created with success");
+                        ShareProposal((MeetingProposal)output.getObj());
+                    }
+                    else
+                    {
+                        Console.WriteLine(output.getMessage());
+                    }
+
+                    return;
                 }
             }
             
-            catch (Exception e) // we should specify the exceptions we get
+            catch (Exception e) // we should specify the exceptions we get ( Is this the conection Exception ? )
             {
                 if (connectToBackup(0, new List<string>()))
                 {
                     CreateProposal(topic, minParticipants, slots, invitees);
                 }
-            } 
+                return;
+            }
+
+                Console.WriteLine("Request: Timeout, abort request.");
         }
 
         // this can be to share the proposal we created or the redirect a received proposal
+        //TODO We have to make all calls to the Server fail proof
         public void ShareProposal(MeetingProposal mp)
         {
             Console.WriteLine("Share Proposal: " + mp.getMPId());
             List<String> args = new List<String>();
             List<string> listURLs = (List<string>) server.Response("GetSharedClientsList", args).getObj();
+
+
             foreach(string url in listURLs){
                 if(url != cURL){
                     Console.WriteLine("Connect to client: " + url);
@@ -245,27 +261,37 @@ namespace Client
 
             List<String> args = new List<String>();
             args.Add(meetingTopic);
-            args.Add(GetName());
+            args.Add(cs.getUser().getName());
             args.Add(string.Join(" ", slots));
+
+            Message output;
 
             try
             {
-                Message output = server.Response("AddUserToProposal", args);
-                if (output.getSucess())
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("AddUserToProposal", args));
+                bool taskCompleted = task.Wait(timeout);
+
+                if (taskCompleted)
                 {
-                    Console.WriteLine("Meeting " + meetingTopic + " joined successfully.");
-                }
-                else
-                {
-                    switch (output.getObj())
+                    output = task.Result;
+                    //Message output = server.Response("AddUserToProposal", args);
+                    if (output.getSucess())
                     {
-                        case 0:
-                            Console.WriteLine("Joing meeting " + meetingTopic + " failed. Topic not found.");
-                            break;
-                        case 1:
-                            Console.WriteLine("Joing meeting " + meetingTopic + " failed. Meeting is restricted.");
-                            break;
+                        Console.WriteLine("Meeting " + meetingTopic + " joined successfully.");
                     }
+                    else
+                    {
+                        switch (output.getObj())
+                        {
+                            case 0:
+                                Console.WriteLine("Joing meeting " + meetingTopic + " failed. Topic not found.");
+                                break;
+                            case 1:
+                                Console.WriteLine("Joing meeting " + meetingTopic + " failed. Meeting is restricted.");
+                                break;
+                        }
+                    }
+                    return;
                 }
             }
             catch (Exception e)
@@ -274,23 +300,32 @@ namespace Client
                 {
                     Participate(meetingTopic, slots);
                 }
+                return;
             }
+            Console.WriteLine("Request: Timeout, abort request.");
         }
 
         private void CloseProposal(String meetingTopic)
         {
             //List<String> output = server.CloseMeetingProposal(meetingTopic, GetName());
             List<String> args = new List<String>();
-            args.Add(GetName());
-
+            args.Add(cs.getUser().getName());
+            Message output;
             try
             {
-                Message output = server.Response("CloseMeetingProposal", args);
-                List<String> messages = (List<String>)output.getObj();
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("CloseMeetingProposal", args));
+                bool taskCompleted = task.Wait(timeout);
 
-                foreach (String s in messages)
+                if (taskCompleted)
                 {
-                    Console.WriteLine(s);
+                    output = task.Result;
+                    //Message output = server.Response("CloseMeetingProposal", args);
+                    List<String> messages = (List<String>)output.getObj();
+
+                    foreach (String s in messages)
+                    {
+                        Console.WriteLine(s);
+                    }
                 }
             }
             catch (Exception e)
@@ -299,10 +334,13 @@ namespace Client
                 {
                     CloseProposal(meetingTopic);
                 }
+                return;
             }
+
+            Console.WriteLine("Request: Timeout, abort request.");
         }
 
- 
+
 
         public String[] getBackupServerURL()
         {
@@ -314,6 +352,7 @@ namespace Client
             sURLBackup = urls;
         }
 
+        //TODO we have to make all calls to the server fail proof, both from freezes and crashes
         private Boolean connectToBackup(int index, List<String> args)
         {
             Boolean _return = true;
@@ -321,13 +360,14 @@ namespace Client
             try
             {
                 args.Add(sURL);
-                sURL = sURLBackup[index];
+                this.sURL = sURLBackup[index];
                 server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[index]);
                 server.Response("RemoveServerFromView", args).getMessage();
 
                 List<String> arg = new List<String>();
                 arg.Add(cURL);
-                Message mess = server.Response("Register", arg);
+                Message mess = server.Response("Register", arg); //should we count when the server is frozen here
+
                 sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
                 Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 
@@ -405,11 +445,5 @@ namespace Client
                     break;
             }
          }
-
-        public string getURL(){
-
-            return cURL;
-        }
-
     }
 }

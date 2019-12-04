@@ -19,6 +19,8 @@ namespace PuppetMaster
     public partial class PMForm : Form
     {
 
+        private static int port = 10001;
+
         Dictionary<String, String> urlServers = new Dictionary<string, string>();
 
         Dictionary<String, String> urlClients = new Dictionary<string, string>();
@@ -214,6 +216,19 @@ namespace PuppetMaster
 
         }
 
+        private void getStatus_Click(object sender, EventArgs e)
+        {
+            foreach (String url in urlServers.Values)
+            {
+                Uri myUri = new Uri(url);
+
+                String psURLHost = myUri.Host;
+                int psURLPort = myUri.Port + 1000;
+                PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+                ps.status();
+            }
+        }
+
         private void Unfreeze_Click(object sender, EventArgs e)
         {
             String servID = unfreezeID.Text;
@@ -227,5 +242,23 @@ namespace PuppetMaster
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             ps.unfreeze();
         }
+
+
+        private void puppiScript_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog();
+            DialogResult result = openFileDialog.ShowDialog(); // Show the dialog.
+            if (result == DialogResult.OK)
+            {
+                scriptPath = openFileDialog.FileName;
+                selectScript.Text = openFileDialog.FileName.Split('\\').Last();
+            }
+            else if (result == DialogResult.Cancel)
+            {
+                scriptPath = "";
+                selectScript.Text = "Select script";
+            }
+        }
+
     }
 }

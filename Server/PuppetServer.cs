@@ -26,6 +26,11 @@ namespace Server
 
         }
 
+        public void status()
+        {
+            sc.status();
+        }
+
         public void addRoom(String location, int capacity, String roomName)
         {
             sc.AddMeetingRoom(location, roomName,capacity);

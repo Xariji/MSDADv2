@@ -90,7 +90,6 @@ namespace PCS
             sProcesses.TryGetValue(serverID, out Process pr);
             pr.Kill();
             sProcesses.Remove(serverID);
-
         }
     }
 }

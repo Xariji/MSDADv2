@@ -11,11 +11,12 @@ namespace Client
     {
         private Cliente client;
         private User user;
+        private string connectedServer;
 
-        public ClientServ(Cliente arg)
+        public ClientServ(Cliente cl)
         {
-            this.client = arg;
-            this.user = new User(arg.GetName());
+            this.client = cl;
+            this.user = new User(cl.GetName());
         }
 
         public User getUser()
@@ -26,6 +27,16 @@ namespace Client
         public void setUser(User u)
         {
             this.user = u;
+        }
+
+        public List<MeetingProposal> getMyProp()
+        {
+            return this.user.getMyMP();
+        }
+
+        public List<MeetingProposal> activeMP()
+        {
+            return this.user.getActiveMP();
         }
 
         public String[] getBackupServerURL()
@@ -47,6 +58,12 @@ namespace Client
 
         public void receiveProposal(MeetingProposal mp){
             this.client.receiveProposal(mp);
+        }
+
+        public void status()
+        {
+            Console.WriteLine("Client: " + getClientURL());
+            Console.WriteLine("Currently connected to: " + client.getSURL());
         }
     }
 }

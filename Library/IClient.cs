@@ -26,5 +26,7 @@ namespace Library
         void setBackupServerURL(String[] urls);
 
         string getClientURL();
+
+        void status();
     }
 }
