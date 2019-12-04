@@ -69,7 +69,7 @@ namespace Client
 
             List<String> arg = new List<String>();
             arg.Add(cURL);
-            Message mess = server.Response("Register", arg); //TODO we need to check this out as well!!!
+            Message mess = server.Response("Register", arg); //it should wait but it should be a task!
             sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 

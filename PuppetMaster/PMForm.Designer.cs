@@ -67,6 +67,7 @@
             this.addServerId = new System.Windows.Forms.TextBox();
             this.selectScript = new System.Windows.Forms.Button();
             this.puppiScript = new System.Windows.Forms.Button();
+            this.runPuppiScript = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // TerminateAll
@@ -406,11 +407,22 @@
             this.puppiScript.UseVisualStyleBackColor = true;
             this.puppiScript.Click += new System.EventHandler(this.puppiScript_Click);
             // 
+            // runPuppiScript
+            // 
+            this.runPuppiScript.Location = new System.Drawing.Point(199, 311);
+            this.runPuppiScript.Name = "runPuppiScript";
+            this.runPuppiScript.Size = new System.Drawing.Size(134, 23);
+            this.runPuppiScript.TabIndex = 42;
+            this.runPuppiScript.Text = "Run script";
+            this.runPuppiScript.UseVisualStyleBackColor = true;
+            this.runPuppiScript.Click += new System.EventHandler(this.runPuppiScript_Click);
+            // 
             // PMForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(764, 410);
+            this.Controls.Add(this.runPuppiScript);
             this.Controls.Add(this.puppiScript);
             this.Controls.Add(this.selectScript);
             this.Controls.Add(this.TerminateAll);
@@ -499,6 +511,7 @@
         private System.Windows.Forms.TextBox addServerId;
         private System.Windows.Forms.Button selectScript;
         private System.Windows.Forms.Button puppiScript;
+        private System.Windows.Forms.Button runPuppiScript;
     }
 }
 

@@ -467,7 +467,7 @@ namespace Server
             {
                     this.handler.WaitOne();
             }
-            Console.WriteLine("carambolas");
+
             mess = requestHandle(request, args);
 
             this.DecrementFrozenRequests();
