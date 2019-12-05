@@ -60,7 +60,7 @@ namespace PuppetMaster
             PCSService pCs;
             Uri myUri = new Uri(URL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
-
+            Task task;
 
 
             // get local IP addresses
@@ -86,7 +86,10 @@ namespace PuppetMaster
             else 
             {
                 pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
-                pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
+                task = Task.Factory.StartNew(() => pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay));
+                task.Wait();
+
+                
             }
             String psURLHost = myUri.Host;
             int psURLPort = myUri.Port + 1000;
@@ -94,11 +97,14 @@ namespace PuppetMaster
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             foreach(KeyValuePair<String, String> server in urlServers)
             {
-                ps.initializeView(server.Key, server.Value);
+                task = Task.Factory.StartNew(() => ps.initializeView(server.Key, server.Value));
+                task.Wait();
+               
             }
-            urlServers.Add(serverID, URL);
-            ps.addServerToView(serverID, URL);
 
+            urlServers.Add(serverID, URL);
+            task = Task.Factory.StartNew(() => ps.addServerToView(serverID, URL));
+            task.Wait();
             serverNo++;
             addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
             addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') + "/mcm";
@@ -159,7 +165,10 @@ namespace PuppetMaster
             else // its not local
             {
                 pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000/pcs");
-                pCs.createClientProcess(userName, cURL, sURL, scriptPath);
+                Task task = Task.Factory.StartNew(() => pCs.createClientProcess(userName, cURL, sURL, scriptPath));
+                task.Wait();
+
+               
             }
 
             urlClients.Add(userName, cURL);
@@ -206,7 +215,10 @@ namespace PuppetMaster
 
                 Uri myUri = new Uri(sURL);
                 PCSService pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
-                pCs.crashServer(serverID);
+                Task task = Task.Factory.StartNew(() => pCs.crashServer(serverID));
+                task.Wait();
+
+                ;
             }
         }
         
@@ -226,7 +238,10 @@ namespace PuppetMaster
             int psURLPort = myUri.Port + 1000;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-            ps.freeze();
+
+            Task task = Task.Factory.StartNew(() => ps.freeze());
+            task.Wait();
+            
         }
 
         private void getStatus_Click(object sender, EventArgs e)
@@ -243,7 +258,8 @@ namespace PuppetMaster
                 String psURLHost = myUri.Host;
                 int psURLPort = myUri.Port + 1000;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-                ps.status();
+                Task task = Task.Factory.StartNew(() => ps.status());
+                task.Wait();
             }
         }
         
@@ -265,7 +281,8 @@ namespace PuppetMaster
             int psURLPort = myUri.Port + 1000;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-            ps.unfreeze();
+            Task task = Task.Factory.StartNew(() => ps.unfreeze());
+            task.Wait();
         }
 
 
