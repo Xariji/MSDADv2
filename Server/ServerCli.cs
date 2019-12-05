@@ -449,10 +449,40 @@ namespace Server
             this.handler.Set();
             this.handler.Reset();
         }
+    
+    public void status()
+        {
+            foreach ( IClient ic in clientsList) 
+            {
+                ic.status();
+            }
 
+            if (isFrozen)
+            {
+                Console.WriteLine("Server: " + server.GetId() + " is online and frozen.");
+            }
+            else
+            {
+                Console.WriteLine("Server: " + server.GetId() + " is online and unfrozen.");
+            
+            }
+            Console.WriteLine();
+            Console.WriteLine("The backup server(s) are : ");
 
+            foreach(KeyValuePair<string,string> entry in server.getView())
+            {
+                Console.WriteLine("ID: " + entry.Key + " URL: " + entry.Value);
+            }
+            Console.WriteLine();
+            Console.WriteLine("The following server(s) are dead: ");
+
+            foreach (KeyValuePair<string, string> entry in server.getCrashed())
+            {
+                Console.WriteLine("ID: " + entry.Key + " URL: " + entry.Value);
+            }
+
+        }
     // this has to work for every request
-    // should we reply something to the client or just do it
     // this handles multi-threading
     public Message Response(String request, List<String> args)//Request request)
     {
@@ -470,7 +500,7 @@ namespace Server
             {
                     this.handler.WaitOne();
             }
-            Console.WriteLine("carambolas");
+
             mess = requestHandle(request, args);
 
             this.DecrementFrozenRequests();

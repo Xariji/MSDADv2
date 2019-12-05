@@ -32,8 +32,7 @@ namespace PCS
             TcpChannel channel = new TcpChannel(port);
             ChannelServices.RegisterChannel(channel, false);
             PCSService pcs = new PCSService();
-            RemotingServices.Marshal(pcs, "pcs", typeof(PCSService)); //TODO should i do this here or create another class??
-
+            RemotingServices.Marshal(pcs, "pcs", typeof(PCSService)); 
             System.Console.WriteLine("PCS running \n  Press Enter to leave");
             System.Console.ReadLine();
         }
@@ -90,7 +89,6 @@ namespace PCS
             sProcesses.TryGetValue(serverID, out Process pr);
             pr.Kill();
             sProcesses.Remove(serverID);
-
         }
     }
 }
