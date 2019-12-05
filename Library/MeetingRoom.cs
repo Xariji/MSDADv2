@@ -41,5 +41,15 @@ namespace Library
         {
             return capacity;
         }
-}
+
+        public List<String> getDates()
+        {
+            return dates;
+        }
+
+        public void setDates(List<String> dates)
+        {
+            this.dates = dates;
+        }
+    }
 }

@@ -12,6 +12,7 @@ namespace Server
     {
 
         List<MeetingProposal> meetingProposals;
+        List<MeetingProposal>[] meetingProposalsBackup;
         List<MeetingLocation> meetingLocations;
         List<IClient> clientsList;
 
@@ -139,6 +140,7 @@ namespace Server
                         currMPId++;
                         Console.WriteLine("Meeting " + mp.getMPTopic() + " created successfully.");
                         message = "Meeting " + mp.getMPTopic() + " created successfully.";
+                        updateBackupProposals();
 
                     }
                     else
@@ -191,6 +193,7 @@ namespace Server
                         mp.addMeetingRec(user, slotsList);
                         user.addActiveMP(mp);
                         Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
+                        updateBackupProposals();
                     }
                     else
                     {
@@ -231,6 +234,7 @@ namespace Server
                             Console.WriteLine("---Meeting closed successfully.");
                             Console.WriteLine(dm.Item2);
                             ic.setUser(user);
+                            updateBackupProposals();
                             return new Message(true, dm.Item2, "Meeting closed successfully.");
                         }
                         else
@@ -308,8 +312,9 @@ namespace Server
                                         Console.WriteLine("User " + usersToExclude[i].getName() + " excluded from meeting.");
                                     }
                                 }
-                                //Book room
-                                mr.book(time);
+                                //Book room on all servers
+                                bookRoom(mr, time);
+
                                 //Add users to participants list
                                 foreach (IClient ic in clientsList)
                                 {
@@ -325,6 +330,35 @@ namespace Server
                 }
             }
             return Tuple.Create(false, "");
+        }
+
+        private void bookRoom(MeetingRoom mr, string time)
+        {
+            lock (meetingLocations)
+            {
+                foreach(MeetingLocation ml in meetingLocations)
+                {
+                    foreach(MeetingRoom room in ml.GetMeetingRooms())
+                    {
+                        if(room.GetName() == mr.GetName())
+                        {
+                            if (room.isBooked(time))
+                            {
+                                return;
+                            }
+                            else
+                            {
+                                room.book(time);
+                            }
+                        }
+                    }
+                }
+                if (!server.getBackupServer().Equals(server.getURL()))
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
+                    bscli.bookRoom(mr, time);
+                }
+            }
         }
 
         private int getCurrMPId()
@@ -447,7 +481,6 @@ namespace Server
                 {
                     this.handler.WaitOne();
                 }
-                Console.WriteLine("carambolas");
                 mess = requestHandle(request, args);
 
                 this.DecrementFrozenRequests();
@@ -622,6 +655,11 @@ namespace Server
 
 
             }
+            for(int i=0; i<serverurls.Count; i++)
+            {
+                meetingProposals.AddRange(meetingProposalsBackup[i]);
+            }
+            updateBackupProposals();
             return new Message(true, null, "");
         }
 
@@ -686,9 +724,76 @@ namespace Server
             return null;
         }
 
-        public void updateLocations(List<MeetingLocation> mls)
+        public void updateLocations(String mls)
         {
-            meetingLocations = mls;
+            List<MeetingLocation> mlsList = new List<MeetingLocation>();
+
+            String[] args = mls.Split('#');
+            foreach (String str in args)
+            {
+                MeetingLocation ml = new MeetingLocation("");
+                ml.decodeSOAP(str);
+                mlsList.Add(ml);
+            }
+            meetingLocations = mlsList;
+            Console.WriteLine("Meeting locations updated.");
+        }
+
+        private void updateBackupProposals()
+        {
+            foreach (String url in server.getView().Values)
+            {
+                try
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
+                    bscli.createNewMPBackup();
+                }
+                catch
+                {
+
+                }
+            }
+            foreach (String url in server.getView().Values)
+            {
+                try
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
+                    bscli.fillMPBackup();
+                }
+                catch
+                {
+
+                }
+            }
+
+        }
+
+        private void createNewMPBackup()
+        {
+            lock (meetingProposalsBackup)
+            {
+                if (meetingProposalsBackup[0] != null)
+                {
+                    meetingProposalsBackup = new List<MeetingProposal>[server.getBackupServer().Length];
+                }
+            }
+        }
+
+        private void fillMPBackup()
+        {
+            lock (meetingProposalsBackup)
+            {
+                for (int i = 0; i < server.getBackupServer().Length; i++)
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[i]);
+                    bscli.setMPBackup(i, meetingProposals);
+                }
+            }
+        }
+
+        private void setMPBackup(int index, List<MeetingProposal> mpList)
+        {
+            meetingProposalsBackup[index] = mpList;
         }
     }
 }

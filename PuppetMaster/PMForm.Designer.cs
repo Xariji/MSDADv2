@@ -68,6 +68,7 @@
             this.puppiScript = new System.Windows.Forms.Button();
             this.locationNameNew = new System.Windows.Forms.TextBox();
             this.locationName = new System.Windows.Forms.ComboBox();
+            this.labelRoomAdd = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // TerminateAll
@@ -449,19 +450,27 @@
             // locationName
             // 
             this.locationName.FormattingEnabled = true;
-            this.locationName.Items.AddRange(new object[] {
-            "Add Location"});
             this.locationName.Location = new System.Drawing.Point(170, 258);
             this.locationName.Name = "locationName";
             this.locationName.Size = new System.Drawing.Size(182, 28);
             this.locationName.TabIndex = 42;
             this.locationName.SelectedIndexChanged += new System.EventHandler(this.locationName_SelectedIndexChanged);
             // 
+            // labelRoomAdd
+            // 
+            this.labelRoomAdd.AutoSize = true;
+            this.labelRoomAdd.Location = new System.Drawing.Point(166, 350);
+            this.labelRoomAdd.Name = "labelRoomAdd";
+            this.labelRoomAdd.Size = new System.Drawing.Size(206, 20);
+            this.labelRoomAdd.TabIndex = 43;
+            this.labelRoomAdd.Text = "Label is renamed on startup";
+            // 
             // PMForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1146, 631);
+            this.Controls.Add(this.labelRoomAdd);
             this.Controls.Add(this.locationName);
             this.Controls.Add(this.puppiScript);
             this.Controls.Add(this.selectScript);
@@ -551,6 +560,7 @@
         private System.Windows.Forms.Button puppiScript;
         private System.Windows.Forms.TextBox locationNameNew;
         private System.Windows.Forms.ComboBox locationName;
+        private System.Windows.Forms.Label labelRoomAdd;
     }
 }
 

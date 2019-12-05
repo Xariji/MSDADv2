@@ -42,7 +42,10 @@ namespace PuppetMaster
             username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
             clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
 
-            locationNameNew.Visible = false;
+            labelRoomAdd.Text = "";
+            locationName.Items.Add("Add location");
+            locationNameNew.Text = "Name of location...";
+            locationName.SelectedIndex = 0;
         }
 
         // We gonna use the PCS here to create a Server
@@ -97,6 +100,17 @@ namespace PuppetMaster
                 ps.initializeView(server.Key, server.Value);
             }
             urlServers.Add(serverID, URL);
+
+            String con = "";
+            foreach (MeetingLocation mloc in meetingLocations)
+            {
+                con += mloc.encodeSOAP() + "#";
+            }
+            if(con.Length > 1)
+            {
+                con = con.Remove(con.Length - 1);
+                ps.updateLocations(con);
+            }
             ps.addServerToView(serverID, URL);
 
             serverNo++;
@@ -282,14 +296,32 @@ namespace PuppetMaster
                 MeetingLocation ml = new MeetingLocation(locationNameNew.Text);
                 ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
                 meetingLocations.Add(ml);
+                labelRoomAdd.Text = "Room \"" + roomName.Text + "\" successfully added to the " + ml.getName() + " location";
             }
             else
             {
                 foreach(MeetingLocation ml in meetingLocations)
                 {
-                    if(ml.getName() == locationName.SelectedItem)
+                    if(ml.getName() == locationName.SelectedItem.ToString().Substring(0, locationName.SelectedItem.ToString().LastIndexOf(' ')))
                     {
-                        ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
+                        bool nameUsed = false;
+                        foreach(MeetingRoom mr in ml.GetMeetingRooms())
+                        {
+                            if(mr.GetName() == roomName.Text)
+                            {
+                                nameUsed = true;
+                            }
+                        }
+                        if (!nameUsed)
+                        {
+                            ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
+                            labelRoomAdd.Text = "Room \"" + roomName.Text + "\" successfully added to the " + ml.getName() + " location";
+                        }
+                        else
+                        {
+                            labelRoomAdd.Text = "Error: Room with name \"" + roomName.Text + "\" already exists in " + ml.getName() + " location";
+                            return;
+                        }
                     }
                 }
             }
@@ -300,17 +332,29 @@ namespace PuppetMaster
                 locationName.Items.Add(ml.getName() + " (" + ml.getRoomsCount() + ")");
             }
             locationName.Items.Add("Add location");
+            locationNameNew.Text = "Name of location...";
+            locationName.SelectedIndex = 0;
         }
 
         private void updateMeetingLocationsOnAllServers()
         {
+            String con = "";
+            foreach (MeetingLocation mloc in meetingLocations)
+            {
+                con += mloc.encodeSOAP() + "#";
+            }
+
             foreach (String url in urlServers.Values)
             {
                 Uri myUri = new Uri(url);
                 String psURLHost = myUri.Host;
                 int psURLPort = myUri.Port + 1000;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-                ps.updateLocations(meetingLocations);
+                if(con.Length > 1)
+                {
+                    con = con.Remove(con.Length - 1);
+                    ps.updateLocations(con);
+                }
             }
         }
 
