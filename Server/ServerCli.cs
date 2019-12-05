@@ -137,7 +137,7 @@ namespace Server
                 {
                     finalExists = true;
 
-                    mp = new MeetingProposal(server.GetId() + ":" + (getCurrMPId() + 1), user, topic, minParticipants, slotsList, users);
+                    mp = new MeetingProposal(user, topic, minParticipants, slotsList, users);
                     meetingProposals.Add(mp);
                     user.addMyMP(mp);
                     currMPId++;
@@ -170,7 +170,6 @@ namespace Server
         IClient ic = findClient(username);
         User user = ic.getUser();
         List<Slot> slotsList = new List<Slot>();
-                    Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
 
         foreach (string slotUnformat in slots)
         {
@@ -188,14 +187,10 @@ namespace Server
             }
         }
 
-        Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
-
-
         foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
             {
-                            Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
 
                 if (mp.canJoin(user))
                 {
@@ -225,8 +220,10 @@ namespace Server
 
     private Message CloseMeetingProposal(String meetingTopic, string username)
     {
+                Console.WriteLine("Vou fechar a minha");
         IClient ic = findClient(username);
         User user = ic.getUser();
+                            Console.WriteLine("Vou fechar a minha");
         foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
@@ -392,14 +389,42 @@ namespace Server
     //should be called on client-side each time an user is updated 
     private IClient findClient(String username)
     {
+        IClient result = null;
+
+        //look for the client on the server
         foreach (IClient ic in clientsList)
         {
             if (ic.getUser().getName().Equals(username))
             {
-                return ic;
+                result = ic;
             }
         }
-        return null;
+
+        //look for the client on the other servers
+        if(result == null){
+            string[] backupList = server.getBackupServer();
+            foreach(string servURL in backupList){
+                ServerCli bscli = null;
+                List<IClient> cliList = null;
+                if(!servURL.Equals(server.getURL())){
+                    try
+                    {                        
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), servURL);
+                        cliList = bscli.getClientsList();
+                        foreach(IClient c in cliList){
+                            if(c.getUser().getName().Equals(username)){
+                                result = c;
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     private Message GetServerId()
@@ -514,8 +539,8 @@ namespace Server
         else if(request == "GetSharedClientsList"){
             mess = getSharedClientsList();
         }
-        else if(request == "GetBackupURL"){
-            mess = GetBackupURL(args[0]);
+        else if(request == "GetMeetingProposalURL"){
+            mess = GetMeetingProposalURL(args[0]);
         }
         else
         {
@@ -627,7 +652,7 @@ namespace Server
         }
 
         //Get client urls from the server
-        public List<string> getClientsList(){
+        public List<string> getClientsURLList(){
 
             List<string> list = new List<string>();
 
@@ -646,7 +671,7 @@ namespace Server
             ServerCli bscli = null;
 
             //get servers clients list
-            list = getClientsList();
+            list = getClientsURLList();
             string[] backupList = server.getBackupServer();
             //find a active backup server with active clients
             for(int i=0; i < backupList.Length; i++){
@@ -665,7 +690,7 @@ namespace Server
                     }
                     if(bscli != null){
                     //get the clients list from the found backup server
-                        auxList = bscli.getClientsList();
+                        auxList = bscli.getClientsURLList();
                         if(auxList.Count() != 0){
                             list.Add(auxList[0]);
                         }
@@ -682,36 +707,51 @@ namespace Server
             return null;
         }
 
-        public Message GetBackupURL(string backupID){
+        public Message GetMeetingProposalURL(string mpTopic){
 
+            //look if the server that has the mp is this one
+            foreach(MeetingProposal serMP in meetingProposals){
+                if(serMP.getMPTopic().Equals(mpTopic)){
+                    return new Message(true, server.getURL(), "");
+                }
+            }
+
+            //look for the proposal on another servers
             string[] backupList = server.getBackupServer();
             string result = null;
             foreach(string serv in backupList){
                 ServerCli bscli = null;
-                Message bscliMess = null;
-                string bscliID = null;
+                List<MeetingProposal> bserMPList = null;
                 if(!serv.Equals(server.getURL())){
                     try
                     {                        
                         bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), serv);
-                        bscliMess = bscli.Response("GetServerId", null);
-                        bscliID = (string) bscliMess.getObj();
-                        if(bscliID.Equals(backupID)){
-                            result = serv;
+                        bserMPList = bscli.getServerMeetingProposals();
+                        foreach(MeetingProposal m in bserMPList){
+                            if(m.getMPTopic().Equals(mpTopic)){
+                                result = serv;
+                            }
                         }
+
                     }
                     catch (Exception e)
                     {
                     }
-
                 }
-
             }
             if(result == null){
-                return new Message(false, null, "Server not found!");
+                return new Message(false, null, "Meeting proposal not found!");
             } else{
                 return new Message(true, result, "");
             }
+        }
+
+        public List<IClient> getClientsList(){
+            return clientsList;
+        }
+
+        public List<MeetingProposal> getServerMeetingProposals(){
+            return meetingProposals;
         }
     }
     }
