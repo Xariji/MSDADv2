@@ -137,7 +137,7 @@ namespace Server
                 {
                     finalExists = true;
 
-                    mp = new MeetingProposal(getCurrMPId() + 1, user, topic, minParticipants, slotsList, users);
+                    mp = new MeetingProposal(user, topic, minParticipants, slotsList, users);
                     meetingProposals.Add(mp);
                     user.addMyMP(mp);
                     currMPId++;
@@ -170,6 +170,7 @@ namespace Server
         IClient ic = findClient(username);
         User user = ic.getUser();
         List<Slot> slotsList = new List<Slot>();
+
         foreach (string slotUnformat in slots)
         {
             string[] slotFormat = slotUnformat.Split(
@@ -190,6 +191,7 @@ namespace Server
         {
             if (mp.getMPTopic() == meetingTopic)
             {
+
                 if (mp.canJoin(user))
                 {
                     mp.addMeetingRec(user, slotsList);
@@ -218,8 +220,10 @@ namespace Server
 
     private Message CloseMeetingProposal(String meetingTopic, string username)
     {
+                Console.WriteLine("Vou fechar a minha");
         IClient ic = findClient(username);
         User user = ic.getUser();
+                            Console.WriteLine("Vou fechar a minha");
         foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
@@ -385,19 +389,48 @@ namespace Server
     //should be called on client-side each time an user is updated 
     private IClient findClient(String username)
     {
+        IClient result = null;
+
+        //look for the client on the server
         foreach (IClient ic in clientsList)
         {
             if (ic.getUser().getName().Equals(username))
             {
-                return ic;
+                result = ic;
             }
         }
-        return null;
+
+        //look for the client on the other servers
+        if(result == null){
+            string[] backupList = server.getBackupServer();
+            foreach(string servURL in backupList){
+                ServerCli bscli = null;
+                List<IClient> cliList = null;
+                if(!servURL.Equals(server.getURL())){
+                    try
+                    {                        
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), servURL);
+                        cliList = bscli.getClientsList();
+                        foreach(IClient c in cliList){
+                            if(c.getUser().getName().Equals(username)){
+                                result = c;
+                            }
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                    }
+                }
+            }
+        }
+
+        return result;
     }
 
     private Message GetServerId()
     {
-        return new Message(true, null, server.GetId());
+        Console.WriteLine("toma la o serverID");
+        return new Message(true, server.GetId(), "");
     }
 
     public void freeze()
@@ -522,6 +555,7 @@ namespace Server
         {
             string[] slots = args[2].Split(' ');
                 foreach (String s in slots) Console.WriteLine(s);
+            Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
             mess = AddUserToProposal(args[0], args[1], slots); 
         }
         else if (request == "GetServerId") //get serverID 
@@ -534,6 +568,9 @@ namespace Server
         }
         else if(request == "GetSharedClientsList"){
             mess = getSharedClientsList();
+        }
+        else if(request == "GetMeetingProposalURL"){
+            mess = GetMeetingProposalURL(args[0]);
         }
         else
         {
@@ -645,7 +682,7 @@ namespace Server
         }
 
         //Get client urls from the server
-        public List<string> getClientsList(){
+        public List<string> getClientsURLList(){
 
             List<string> list = new List<string>();
 
@@ -661,36 +698,36 @@ namespace Server
 
             List<string> list = null;
             List<string> auxList = null;
-            int indexBackupUpdate = 0;
             ServerCli bscli = null;
 
             //get servers clients list
-            list = getClientsList();
-
-            //find a active backup server
-            if (!server.getBackupServer()[0].Equals(server.getURL()))
-            {
-                try
+            list = getClientsURLList();
+            string[] backupList = server.getBackupServer();
+            //find a active backup server with active clients
+            for(int i=0; i < backupList.Length; i++){
+                if (!server.getBackupServer()[0].Equals(server.getURL()))
                 {
-                    bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);  
-                }
-                catch (Exception e)
-                {
-                    if(indexBackupUpdate + 1 < server.getBackupServer().Length)
+                    try
                     {
-                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate + 1]);
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), backupList[i]);
+                    }
+                    catch (Exception e)
+                    {
+                        if(i + 1 < backupList.Length)
+                        {
+                            bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), backupList[i + 1]);
+                        }
+                    }
+                    if(bscli != null){
+                    //get the clients list from the found backup server
+                        auxList = bscli.getClientsURLList();
+                        if(auxList.Count() != 0){
+                            list.Add(auxList[0]);
+                        }
                     }
                 }
             }
-
-            if(bscli != null){
-                //get the clients list from the found backup server
-                auxList = bscli.getClientsList();
-                if(auxList.Count() != 0){
-                    list.Add(auxList[0]);
-                }
-            }
-
+       
             return new Message(true, list, "");
 
         }
@@ -698,6 +735,53 @@ namespace Server
         public override object InitializeLifetimeService()
         {
             return null;
+        }
+
+        public Message GetMeetingProposalURL(string mpTopic){
+
+            //look if the server that has the mp is this one
+            foreach(MeetingProposal serMP in meetingProposals){
+                if(serMP.getMPTopic().Equals(mpTopic)){
+                    return new Message(true, server.getURL(), "");
+                }
+            }
+
+            //look for the proposal on another servers
+            string[] backupList = server.getBackupServer();
+            string result = null;
+            foreach(string serv in backupList){
+                ServerCli bscli = null;
+                List<MeetingProposal> bserMPList = null;
+                if(!serv.Equals(server.getURL())){
+                    try
+                    {                        
+                        bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), serv);
+                        bserMPList = bscli.getServerMeetingProposals();
+                        foreach(MeetingProposal m in bserMPList){
+                            if(m.getMPTopic().Equals(mpTopic)){
+                                result = serv;
+                            }
+                        }
+
+                    }
+                    catch (Exception e)
+                    {
+                    }
+                }
+            }
+            if(result == null){
+                return new Message(false, null, "Meeting proposal not found!");
+            } else{
+                return new Message(true, result, "");
+            }
+        }
+
+        public List<IClient> getClientsList(){
+            return clientsList;
+        }
+
+        public List<MeetingProposal> getServerMeetingProposals(){
+            return meetingProposals;
         }
     }
     }

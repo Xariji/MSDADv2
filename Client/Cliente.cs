@@ -23,7 +23,7 @@ namespace Client
         private String script;
         private String[] sURLBackup;
 
-        //private List<MeetingProposal> myProposals;
+        public delegate string RemoteAsyncDelegate();
 
         //Usage: put as args: <username> <scriptPath>
 
@@ -150,8 +150,6 @@ namespace Client
          */
         private void CreateProposal(String topic, int minParticipants, String[] slots, String[] invitees)
         {
-            //Tuple<Boolean, string> output = server.AddMeetingProposal(topic, minParticipants, slots, invitees, GetName());
-
             List<String> args = new List<String>();
             args.Add(cs.getUser().getName());
             args.Add(topic);
@@ -173,8 +171,6 @@ namespace Client
                     //Message output = server.Response("AddMeetingProposal", args);
                     if (output.getSucess())
                     {
-                        //this.myProposals.Add((MeetingProposal)output.getObj());
-                        cs.getUser().addMyMP((MeetingProposal)output.getObj());
                         // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
                         Console.WriteLine("Proposal created with success");
                         ShareProposal((MeetingProposal)output.getObj());
@@ -204,17 +200,13 @@ namespace Client
         //TODO We have to make all calls to the Server fail proof
         public void ShareProposal(MeetingProposal mp)
         {
-            Console.WriteLine("Share Proposal: " + mp.getMPId());
             List<String> args = new List<String>();
             List<string> listURLs = (List<string>) server.Response("GetSharedClientsList", args).getObj();
 
 
             foreach(string url in listURLs){
-                if(url != cURL){
-                    Console.WriteLine("Connect to client: " + url);
-               
+                if(url != cURL){               
                     ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), url);
-                    Console.WriteLine("Send proposal");
                     c.receiveProposal(mp);
                 }
             }
@@ -227,22 +219,16 @@ namespace Client
             Console.WriteLine(cs.getUser().getName());
 
             //validate if the client already as the proposal
-
             foreach(MeetingProposal m in cs.getUser().getMyMP()){
-                Console.WriteLine("Procurando");
-                if(m.getMPId() == mp.getMPId()){
-                    Console.WriteLine("Busted");
+                if(m.getMPTopic().Equals(mp.getMPTopic())){
                     found = true;
                 }
             }
-            Console.WriteLine("Validated");
 
             if(!found){
-                Console.WriteLine("Add");
                 //add the proposal
                 cs.getUser().addMyMP(mp);
-                //share it
-                Console.WriteLine("Partilhar: "  + mp.getMPId());
+                //share it with the other clients
                 ShareProposal(mp);
             }
 
@@ -257,7 +243,8 @@ namespace Client
                 return;
             }
 
-            //Tuple<Boolean, int> output = server.AddUserToProposal(meetingTopic, GetName(), slots);
+            //look for the server that created that meeting proposal
+            ISchedulingServer otherServer = findOriginServer(meetingTopic);
 
             List<String> args = new List<String>();
             args.Add(meetingTopic);
@@ -268,7 +255,7 @@ namespace Client
 
             try
             {
-                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("AddUserToProposal", args));
+                Task<Message> task = Task<Message>.Factory.StartNew(() => otherserver.Response("AddUserToProposal", args));
                 bool taskCompleted = task.Wait(timeout);
 
                 if (taskCompleted)
@@ -307,13 +294,17 @@ namespace Client
 
         private void CloseProposal(String meetingTopic)
         {
-            //List<String> output = server.CloseMeetingProposal(meetingTopic, GetName());
+
+            //look for the server that created that meeting proposal
+            ISchedulingServer otherServer = findOriginServer(meetingTopic);
+
             List<String> args = new List<String>();
+            args.Add(meetingTopic);
             args.Add(cs.getUser().getName());
             Message output;
             try
             {
-                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("CloseMeetingProposal", args));
+                Task<Message> task = Task<Message>.Factory.StartNew(() => otherServer.Response("CloseMeetingProposal", args));
                 bool taskCompleted = task.Wait(timeout);
 
                 if (taskCompleted)
@@ -395,6 +386,20 @@ namespace Client
             return _return;
         }
 
+        private ISchedulingServer findOriginServer(string meetingTopic){
+
+            ISchedulingServer result = null;
+            List<string> auxArgs = new List<string>();
+            auxArgs.Add(meetingTopic);
+            Message urlMess = server.Response("GetMeetingProposalURL", auxArgs);
+            if(urlMess.getSucess()){
+                result = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), (string)urlMess.getObj());
+            } else {
+                Console.WriteLine(urlMess.getMessage());
+            }
+
+            return result;
+        }
          private void ProcessConsoleLine(string line)
          {
             string[] commandArgs = line.Split(

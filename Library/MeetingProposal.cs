@@ -13,7 +13,6 @@ namespace Library
             Closed,
             Cancelled
         }
-        private int id;
         private Status status; 
         private User coordinator;
         private String topic;
@@ -23,9 +22,8 @@ namespace Library
         private List<MeetingRecord> meetingRecs;
         private List<User> meetingParticipants;
 
-        public MeetingProposal(int id, User coordinator, string topic, int minParticipants, List<Slot> slots, List<User> invitees )
+        public MeetingProposal(User coordinator, string topic, int minParticipants, List<Slot> slots, List<User> invitees )
         {
-            this.id = id;
             this.status = Status.Open;
             this.coordinator = coordinator;
             this.topic = topic;
@@ -66,7 +64,7 @@ namespace Library
         override public string ToString()
         {
             StringBuilder fs = new StringBuilder();
-            fs.Append("(ID: " + id + "| Topic: " + topic + "| Minimum Participants: " + minParticipants + "| Slots: ");
+            fs.Append("(Topic: " + topic + "| Minimum Participants: " + minParticipants + "| Slots: ");
             foreach(Slot slot in slots)
             {
                 fs.Append(slot.ToString() + "; ");
@@ -78,11 +76,6 @@ namespace Library
             }
             fs.Append(")");
             return fs.ToString();
-        }
-
-        public int getMPId()
-        {
-            return id;
         }
 
         public List<Slot> getSlots()
