@@ -352,8 +352,8 @@ namespace PuppetMaster
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
                 if(con.Length > 1)
                 {
-                    con = con.Remove(con.Length - 1);
-                    ps.updateLocations(con);
+                    String conCorrected = con.Remove(con.Length - 1);
+                    ps.updateLocations(conCorrected);
                 }
             }
         }
