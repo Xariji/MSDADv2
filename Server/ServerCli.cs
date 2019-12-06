@@ -638,8 +638,13 @@ namespace Server
         else if(request == "GetSharedClientsList"){
             mess = getSharedClientsList();
         }
-        else if(request == "GetMeetingProposalURL"){
+        else if (request == "GetMeetingProposalURL")
+        {
             mess = GetMeetingProposalURL(args[0]);
+        }
+        else if (request == "getClientURLs")
+        {
+            mess = getClientURLs();
         }
         else
         {
@@ -980,19 +985,25 @@ namespace Server
 
         public Message closeRequest(string topic, string username)
         {
+            Console.WriteLine("closeRequest 1");
             string primary = server.getView().Values[0];
+            Console.WriteLine("closeRequest 2");
             ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
-
+            Console.WriteLine("closeRequest 3");
             Message mess;// = serv.sequence(server.getURL(), topic, username);
 
             Task<Message> task = Task<Message>.Factory.StartNew(() => serv.sequence(server.getURL(), topic, username));
+            Console.WriteLine("closeRequest 4");
             bool done = task.Wait(timeout);
+            Console.WriteLine("closeRequest 5");
             if (done)
             {
+                Console.WriteLine("closeRequest 6a");
                 mess = task.Result;
             }
             else
             {
+                Console.WriteLine("closeRequest 6b");
                 mess = new Message(false, null, "Server to close timedout abort operation");
             }
             return mess;
@@ -1001,29 +1012,32 @@ namespace Server
         public Message sequence(string url, string topic, string username)
         {
             Message mess = null;
-
-            if(closes.ContainsValue(url + " " + topic + " " + username))
+            Console.WriteLine("sequence 1");
+            if (!closes.ContainsValue(url + " " + topic + " " + username))
             {
                 seq++;
                 closes.Add(seq, url + " " + topic + " " + username);
-
+                Console.WriteLine("sequence 2");
                 Monitor.Enter(request);
                 closes.TryGetValue(request, out string str);
-
+                Console.WriteLine("sequence 3");
                 string[] data = str.Split(' ');
 
                 ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
-
+                Console.WriteLine("sequence 4");
                 Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
+                Console.WriteLine("sequence 5");
                 bool done = task.Wait(timeout);
-
+                Console.WriteLine("sequence 6");
                 if (done)
                 {
+                    Console.WriteLine("sequence 7a");
                     mess = task.Result;
                 }
 
                 else
                 {
+                    Console.WriteLine("sequence 7b");
                     mess = new Message(false, null, "Server to close timedout abort operation");
                 }
 
@@ -1033,6 +1047,7 @@ namespace Server
             }
             else
             {
+                Console.WriteLine("sequence 8");
                 mess = new Message(false, null, "Duplicated request");
 
             }
