@@ -545,6 +545,7 @@ namespace Server
             else if (request == "RemoveServerFromView") //get serverID
             {
                 mess = removeServerFromView(args);
+                recreateBackupProposals();
             }
             else if (request == "GetSharedClientsList")
             {
@@ -623,20 +624,29 @@ namespace Server
 
                             if (!server.getBackupServer()[0].Equals(server.getURL()))
                             {
-                                tryConnectToBackup(0);
+                                Console.WriteLine("Checkpoint 1");
+                                tryConnectToBackup(0, serverurls);
 
-                                void tryConnectToBackup(int indexBackupUpdate)
+                                void tryConnectToBackup(int indexBackupUpdate, List<String> args)
                                 {
                                     try
                                     {
+                                        Console.WriteLine("Checkpoint 2");
                                         ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
-                                        bscli.removeServerFromView(serverid, serverurl);
+                                        Console.WriteLine("Checkpoint 3");
+                                        bscli.removeServerFromView(args);
+                                        Console.WriteLine("Checkpoint 4");
                                     }
                                     catch (Exception e)
                                     {
+                                        Console.WriteLine("Checkpoint 6");
                                         if (indexBackupUpdate + 1 < server.getBackupServer().Length)
                                         {
-                                            tryConnectToBackup(indexBackupUpdate + 1);
+                                            Console.WriteLine("Checkpoint 7");
+                                            args.Add(server.getBackupServer()[indexBackupUpdate]);
+                                            Console.WriteLine("Checkpoint 8");
+                                            tryConnectToBackup(indexBackupUpdate + 1, args);
+                                            Console.WriteLine("Checkpoint 9");
                                         }
                                         else
                                         {
@@ -663,7 +673,6 @@ namespace Server
             {
                 meetingProposals.AddRange(meetingProposalsBackup[i]);
             }
-            recreateBackupProposals();
             return new Message(true, null, "");
         }
 
@@ -745,7 +754,7 @@ namespace Server
 
         public void recreateBackupProposals()
         {
-            Console.WriteLine("Start Recreate Backups");
+            Console.WriteLine("Recreation of proposal backups started");
             foreach (String url in server.getView().Values)
             {
                 try
@@ -759,10 +768,11 @@ namespace Server
                 }
             }
             updateBackupProposals();
+            Console.WriteLine("Recreation of proposal backups finished");
         }
 
         public void updateBackupProposals()
-        { 
+        {
             foreach (String url in server.getView().Values)
             {
                 try
@@ -770,66 +780,59 @@ namespace Server
                     ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
                     bscli.fillMPBackup();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
-                    Console.WriteLine("Excpetion foreach2: " + e);
+                    Console.WriteLine("Excpetion updateBackupProposals: " + e.Message + " on url: " + url);
+
                 }
             }
-
         }
 
         public void createNewMPBackup()
         {
-            lock (meetingProposalsBackup)
+            try
             {
-                meetingProposalsBackup = new List<MeetingProposal>[server.getBackupServer().Length];
-                Console.WriteLine("New Backup List, Length: " + meetingProposalsBackup.Length);
+                lock (meetingProposalsBackup)
+                {
+                    meetingProposalsBackup = new List<MeetingProposal>[server.getBackupServer().Length];
+                }
             }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            
         }
 
         public void fillMPBackup()
         {
-            lock (meetingProposalsBackup)
+            Console.WriteLine("Update of proposal backups started");
+            for (int i = 0; i < server.getBackupServer().Length; i++)
             {
-                for (int i = 0; i < server.getBackupServer().Length; i++)
+                try
                 {
-                    Console.WriteLine("Writing " + meetingProposals.Count + " MP(s) to " + server.getBackupServer()[i] + " on slot " + i);
                     ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[i]);
                     bscli.setMPBackup(i, meetingProposals);
                 }
-            }
-            Console.WriteLine("Backup Proposals:");
-            int i2 = 1;
-            foreach(List<MeetingProposal> lmp in meetingProposalsBackup)
-            {
-                if(lmp != null)
+                catch(Exception e)
                 {
-                    Console.WriteLine("Slot " + i2 + "/" + meetingProposalsBackup.Length + ":");
-                    i2++;
-                    if (lmp.Count > 0)
-                    {
-                        foreach (MeetingProposal mp in lmp)
-                        {
-                            Console.WriteLine(mp.getMPTopic());
-                        }
-                    }
-                    else
-                    {
-                        Console.WriteLine("No Proposals");
-                    }
+                    removeServerFromView(new List<String>() { server.getBackupServer()[i] });
+                    recreateBackupProposals();
+                    fillMPBackup();
                 }
-                else
-                {
-                    Console.WriteLine("No List<MeetingProposal> in Backups.");
-                }
+                    
             }
+            Console.WriteLine("Update of proposal backups finished");
         }
 
         public void setMPBackup(int index, List<MeetingProposal> mpList)
         {
-            if(meetingProposalsBackup.Length > 0)
+            lock (meetingProposalsBackup)
             {
-                meetingProposalsBackup[index] = mpList;
+                if (meetingProposalsBackup.Length > 0)
+                {
+                    meetingProposalsBackup[index] = mpList;
+                }
             }
         }
     }
