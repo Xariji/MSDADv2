@@ -115,9 +115,11 @@ namespace Client
                     if (s.Equals("YES")){
                         foreach (string command in commandList)
                         {
-                            cli.ProcessConsoleLine(command);
-                            Console.WriteLine("Press Enter to execute next line");
+
+                            Console.WriteLine("Press Enter to execute the line:");
+                            Console.WriteLine(command);
                             Console.ReadLine();
+                            cli.ProcessConsoleLine(command);
                         }
                     }
                     else
@@ -342,7 +344,6 @@ namespace Client
                 if (taskCompleted)
                 {
                     output = task.Result;
-                    //Message output = server.Response("CloseMeetingProposal", args);
                     List<String> messages = (List<String>)output.getObj();
 
                     foreach (String s in messages)
@@ -360,7 +361,6 @@ namespace Client
                 return;
             }
 
-            Console.WriteLine("Request: Timeout, abort request.");
         }
 
 

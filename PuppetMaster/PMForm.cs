@@ -325,7 +325,6 @@ namespace PuppetMaster
             }
         }
 
-        //TODO
         private void addRoom_Click(object sender, EventArgs e)
         {
             if (locationName.SelectedItem.Equals("Add location"))
@@ -478,7 +477,6 @@ namespace PuppetMaster
             }
         }
 
-        //TODO TEST
         private void ProcessScriptLine(String command)
         {
             string[] commandArgs = command.Split(

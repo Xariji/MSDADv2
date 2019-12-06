@@ -985,16 +985,25 @@ namespace Server
 
             Message mess;// = serv.sequence(server.getURL(), topic, username);
 
-            Task<Message> task = Task<Message>.Factory.StartNew(() => serv.sequence(server.getURL(), topic, username));
-            bool done = task.Wait(timeout);
-            if (done)
+            if (primary.Equals(server.getURL()))
             {
-                mess = task.Result;
+                Task<Message> task = Task<Message>.Factory.StartNew(() => serv.sequence(server.getURL(), topic, username));
+                bool done = task.Wait(timeout);
+
+                if (done)
+                {
+                    mess = task.Result;
+                }
+                else
+                {
+                    mess = new Message(false, null, "Server to close timed out abort operation");
+                }
             }
             else
             {
-                mess = new Message(false, null, "Server to close timedout abort operation");
+                mess = sequence(server.getURL(), topic, username);
             }
+           
             return mess;
         }
 
@@ -1002,31 +1011,39 @@ namespace Server
         {
             Message mess = null;
 
-            if(closes.ContainsValue(url + " " + topic + " " + username))
+            if(!closes.ContainsValue(url + " " + topic + " " + username))
             {
                 seq++;
+
                 closes.Add(seq, url + " " + topic + " " + username);
 
-                Monitor.Enter(request);
+                Monitor.Enter(request); //lock
                 closes.TryGetValue(request, out string str);
 
                 string[] data = str.Split(' ');
 
                 ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
-
-                Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
-                bool done = task.Wait(timeout);
-
-                if (done)
+                if (data[0].Equals(server.getURL()))
                 {
-                    mess = task.Result;
+                    Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
+                    bool done = task.Wait(timeout);
+
+                    if (done)
+                    {
+                        mess = task.Result;
+                    }
+
+                    else
+                    {
+                        mess = new Message(false, null, "Server to close timed out abort operation");
+                    };
                 }
 
                 else
                 {
-                    mess = new Message(false, null, "Server to close timedout abort operation");
+                    mess = CloseMeetingProposal(data[1], data[2]);
                 }
-
+                
                 request++;
                 Monitor.Pulse(request);
                 Monitor.Exit(request);
