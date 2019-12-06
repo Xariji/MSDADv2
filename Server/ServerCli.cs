@@ -13,8 +13,6 @@ namespace Server
 
         List<MeetingProposal> meetingProposals;
         List<MeetingLocation> meetingLocations;
-
-        List<String> closes = new List<string>();
         List<IClient> clientsList;
 
         int currMPId;
@@ -24,8 +22,6 @@ namespace Server
         private bool isFrozen;
         private int frozenRequests;
 
-        private int request = 0;
-        private int seq = 0;
         private readonly Random seedRandom = new Random();
 
         private readonly EventWaitHandle frozenRequestsHandler;
@@ -175,7 +171,6 @@ namespace Server
         User user = ic.getUser();
         List<Slot> slotsList = new List<Slot>();
 
-     
         foreach (string slotUnformat in slots)
         {
             string[] slotFormat = slotUnformat.Split(
@@ -192,19 +187,16 @@ namespace Server
             }
         }
 
-        foreach (MeetingProposal mp in meetingProposals) //TODO we should make meeting proposals a dictionary
+        foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
             {
 
                 if (mp.canJoin(user))
                 {
-                    Monitor.Enter(mp);
                     mp.addMeetingRec(user, slotsList);
                     user.addActiveMP(mp);
                     Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
-                    Monitor.Pulse(mp);
-                    Monitor.Exit(mp);
                 }
                 else
                 {
@@ -228,44 +220,42 @@ namespace Server
 
     private Message CloseMeetingProposal(String meetingTopic, string username)
     {
+                Console.WriteLine("Vou fechar a minha");
         IClient ic = findClient(username);
         User user = ic.getUser();
-
-        foreach (MeetingProposal mp in meetingProposals)//TODO this should be a dictionary
+                            Console.WriteLine("Vou fechar a minha");
+        foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
             {
                 if (mp.getStatus() == MeetingProposal.Status.Open)
                 {
-                    Monitor.Enter(mp); //TODO WE GONNA NEED TO LOCK THIS
-                    Console.WriteLine("User " + username + " prompts to close meeting " + meetingTopic);
+                    Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
+                    user.removeMyMP(mp);
+                    Console.WriteLine("---Meeting removed from user's myMP list.");
+                    foreach (IClient ict in clientsList)
+                    {
+                        ict.getUser().removeActiveMP(mp);
+                    }
+                    Console.WriteLine("---Meeting removed from all users activeMP list.");
                     Tuple<Boolean, String> dm = DecideMeeting(mp);
-
                     if (dm.Item1)
                     {
                         mp.setStatus(MeetingProposal.Status.Closed);
-                            Monitor.Pulse(mp);
-                            Monitor.Exit(mp);
                         Console.WriteLine("---Meeting closed successfully.");
                         Console.WriteLine(dm.Item2);
-                        ic.setUser(user); //what does this do ?
+                        ic.setUser(user);
                         return new Message(true, dm.Item2, "Meeting closed successfully.");
                     }
                     else
                     {
                         mp.setStatus(MeetingProposal.Status.Cancelled);
-                        Monitor.Pulse(mp);
-                        Monitor.Exit(mp);
                         Console.WriteLine("---Meeting cancelled.");
                         ic.setUser(user);
                         return new Message(true, null, "Meeting cancelled.");
                     }
                 }
-                else if(mp.getStatus() == MeetingProposal.Status.Closed)
-                    {
-                        return new Message(true, null, "Meeting already closed.");
-                    }
-                }
+            }
         }
         ic.setUser(user);
 
@@ -540,7 +530,7 @@ namespace Server
         }
         else if (request == "CloseMeetingProposal") // close
         {
-                mess = closeRequest(args[0], args[1]); //CloseMeetingProposal(args[0], args[1]);
+            mess = CloseMeetingProposal(args[0], args[1]);
         }
         else if (request == "AddMeetingProposal") //create
         {
@@ -793,92 +783,5 @@ namespace Server
         public List<MeetingProposal> getServerMeetingProposals(){
             return meetingProposals;
         }
-
-        public Message closeRequest(string topic, string username)
-        {
-            string primary = server.getView().Values[0];
-            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary); //TODO we need to check the primary
-            Message mess = serv.sequence(server.getURL(), topic, username);
-            return mess;
-        }
-
-        public Message sequence(string url, string topic, string username)
-        {
-            Message mess;
-            if (closes.Contains(seq + url + topic))
-            {
-                Monitor.Enter(seq);
-                closes.Add(seq + url + topic);
-                ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
-                mess = serv.CloseMeetingProposal(topic, username);
-                seq = seq + 1;
-                Monitor.Pulse(closes);
-                Monitor.Exit(closes);
-            }
-            else
-            {
-                mess = new Message(false, null, "Closed meeting request duplicated");
-            }
-            
-            return mess;
-        }
-
-
-        /*A process wishing to TO-multicast a message m to group g attaches a unique identifier id(m) to it.
-        The messages for g are sent to the sequencer for g, sequencer(g), as well as to the
-        members of g. (The sequencer may be chosen to be a member of g.) 
-
-        The process
-        sequencer(g) maintains a group-specific sequence number sg, which it uses to assign
-        increasing and consecutive sequence numbers to the messages that it B-delivers.
-        It announces the sequence numbers by B-multicasting order messages to g(see Figure
-        15.13 for the details).
-
-        A message will remain in the hold-back queue indefinitely until it can be TO delivered according 
-        to the corresponding sequence number.Since the sequence numbers
-        are well defined (by the sequencer), the criterion for total ordering is met.
-
-        Furthermore,if the processes use a FIFO-ordered variant of B-multicast, then the totally ordered
-        multicast is also causally ordered. We leave the reader to show this.
-
-
-                public string closeRequest(string id)
-                {
-                    ServerCli serv; // we gonna make this the primary server;
-
-                    foreach(String url in server.getView().Values)
-                    {
-                        serv = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
-                        serv.receiveSeq(id);
-
-                    }
-                    serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
-                    serv.sequencer(id);
-
-                    return null;
-                }
-
-                public string receiveSeq(String id)
-                {
-                    closes.Add(id);
-                    return null;
-                }
-
-                public string shouldGo(String id, int S)
-                {
-
-                    if(S == request)
-                    {
-
-                    }
-                    return null;
-                }
-                public bool sequencer(string id)
-                {
-
-                    seq = seq + 1;
-                    return false;
-                }
-                */
     }
-}
+    }

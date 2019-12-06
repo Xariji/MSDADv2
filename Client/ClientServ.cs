@@ -62,10 +62,8 @@ namespace Client
 
         public void status()
         {
-            Console.WriteLine();
             Console.WriteLine("Client: " + getClientURL());
             Console.WriteLine("Currently connected to: " + client.getSURL());
-            Console.Write("Insert command: ");
         }
     }
 }
