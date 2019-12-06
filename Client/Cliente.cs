@@ -345,11 +345,6 @@ namespace Client
                 {
                     output = task.Result;
                     List<String> messages = (List<String>)output.getObj();
-
-                    foreach (String s in messages)
-                    {
-                        Console.WriteLine(s);
-                    }
                 }
             }
             catch (Exception e)
@@ -444,7 +439,6 @@ namespace Client
             Task<object> task = Task<object>.Factory.StartNew(() => server.Response("getClientURLs", null).getObj()); // should we send an error here ?
             task.Wait();
             localClients = (List<String>)task.Result;
-
         }
 
         private ISchedulingServer findOriginServer(string meetingTopic){

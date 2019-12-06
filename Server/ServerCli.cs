@@ -638,8 +638,13 @@ namespace Server
         else if(request == "GetSharedClientsList"){
             mess = getSharedClientsList();
         }
-        else if(request == "GetMeetingProposalURL"){
+        else if (request == "GetMeetingProposalURL")
+        {
             mess = GetMeetingProposalURL(args[0]);
+        }
+        else if (request == "getClientURLs")
+        {
+            mess = getClientURLs();
         }
         else
         {
@@ -985,7 +990,7 @@ namespace Server
 
             Message mess;// = serv.sequence(server.getURL(), topic, username);
 
-            if (primary.Equals(server.getURL()))
+            if (!primary.Equals(server.getURL()))
             {
                 Task<Message> task = Task<Message>.Factory.StartNew(() => serv.sequence(server.getURL(), topic, username));
                 bool done = task.Wait(timeout);
@@ -996,7 +1001,7 @@ namespace Server
                 }
                 else
                 {
-                    mess = new Message(false, null, "Server to close timed out abort operation");
+                    mess = new Message(false, null, "Close not successfull");
                 }
             }
             else
@@ -1011,20 +1016,21 @@ namespace Server
         {
             Message mess = null;
 
-            if(!closes.ContainsValue(url + " " + topic + " " + username))
-            {
+            if(!closes.ContainsValue(url + " " + topic + " " + username)) { 
+                
                 seq++;
-
                 closes.Add(seq, url + " " + topic + " " + username);
 
                 Monitor.Enter(request); //lock
-                closes.TryGetValue(request, out string str);
 
+                closes.TryGetValue(request, out string str);
+                Console.WriteLine("sequence 3");
                 string[] data = str.Split(' ');
 
-                ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
-                if (data[0].Equals(server.getURL()))
+
+                if (!data[0].Equals(server.getURL()))
                 {
+                    ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
                     Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
                     bool done = task.Wait(timeout);
 
@@ -1036,12 +1042,13 @@ namespace Server
                     else
                     {
                         mess = new Message(false, null, "Server to close timed out abort operation");
-                    };
+                    }
                 }
 
                 else
                 {
                     mess = CloseMeetingProposal(data[1], data[2]);
+
                 }
                 
                 request++;
@@ -1050,6 +1057,7 @@ namespace Server
             }
             else
             {
+                Console.WriteLine("sequence 8");
                 mess = new Message(false, null, "Duplicated request");
 
             }
