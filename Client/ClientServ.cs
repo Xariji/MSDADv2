@@ -62,8 +62,20 @@ namespace Client
 
         public void status()
         {
+            Console.WriteLine();
             Console.WriteLine("Client: " + getClientURL());
             Console.WriteLine("Currently connected to: " + client.getSURL());
+            Console.Write("Insert command: ");
+        }
+
+        public void updateLocalClients()
+        {
+            this.client.updateLocalClients();
+        }
+
+        public void connectToBackup(int index, List<string> list)
+        {
+            this.client.connectToBackup(index, list);
         }
     }
 }

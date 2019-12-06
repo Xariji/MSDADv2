@@ -22,6 +22,7 @@ namespace Client
         private String sURL;
         private String script;
         private String[] sURLBackup;
+        private List<String> localClients;
 
         //private List<MeetingProposal> myProposals;
 
@@ -50,8 +51,9 @@ namespace Client
             String sURL = vs[2];
             String script = "" ; 
             String[] sURLBackup;
+            List<String> localClients = new List<String>();
 
-            if(args.Length > 1)
+            if (args.Length > 1)
             {
                 script = args[1];
             }
@@ -353,7 +355,7 @@ namespace Client
         }
 
         //TODO we have to make all calls to the server fail proof, both from freezes and crashes
-        private Boolean connectToBackup(int index, List<String> args)
+        public Boolean connectToBackup(int index, List<String> args)
         {
             Boolean _return = true;
             Console.WriteLine("Connection to Server lost. Trying to reconnect...");
@@ -370,6 +372,18 @@ namespace Client
 
                 sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
                 Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
+
+                //coordinate local clients to reconnect to different backup servers
+                int pointer = index + 1 % sURLBackup.Length;
+                foreach (string url in localClients)
+                {
+                    if (url != cURL)
+                    {
+                        ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), url);
+                        c.connectToBackup(pointer % sURLBackup.Length, new List<String>());
+                        pointer++;
+                    }
+                }
 
                 _return = true;
             }
@@ -393,6 +407,11 @@ namespace Client
                 }
             }
             return _return;
+        }
+
+        public void updateLocalClients()
+        {
+            localClients = (List<String>)server.Response("getClientURLs", null).getObj();
         }
 
          private void ProcessConsoleLine(string line)

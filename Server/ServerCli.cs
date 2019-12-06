@@ -53,6 +53,12 @@ namespace Server
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
 
+            //Update local client list on all Clients
+            foreach(IClient ic in clientsList)
+            {
+                ic.updateLocalClients();
+            }
+
             Message mess = new Message(true, server.getBackupServer(), "conected to Server " + server.GetId());
             Console.WriteLine("Client " + client.getUser().getName() + " connected.");
             return mess;
@@ -834,6 +840,16 @@ namespace Server
                     meetingProposalsBackup[index] = mpList;
                 }
             }
+        }
+
+        public Message getClientURLs()
+        {
+            List<String> clientURLs = new List<String>();
+            foreach(IClient ic in clientsList)
+            {
+                clientURLs.Add(ic.getClientURL());
+            }
+            return new Message(true, clientURLs, "");
         }
     }
 }
