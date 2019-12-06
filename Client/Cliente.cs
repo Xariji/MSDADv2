@@ -257,7 +257,7 @@ namespace Client
 
             try
             {
-                Task<Message> task = Task<Message>.Factory.StartNew(() => otherserver.Response("AddUserToProposal", args));
+                Task<Message> task = Task<Message>.Factory.StartNew(() => otherServer.Response("AddUserToProposal", args));
                 bool taskCompleted = task.Wait(timeout);
 
                 if (taskCompleted)
