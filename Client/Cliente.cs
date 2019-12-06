@@ -16,6 +16,7 @@ namespace Client
         private static ClientServ cs;
 
         private static int timeout = 5000;
+        private static int gossipParam = 2;
 
         private String username;
         private String cURL;
@@ -33,14 +34,17 @@ namespace Client
             this.cURL = cURL;
             this.sURL = sURL;
             this.script = script;
-            //this.myProposals = new List<MeetingProposal>();
         }
 
         static void Main(string[] args)
         {
             TcpChannel channel;
             Cliente cli;
-
+            String script = "";
+            if(args.Length == 2){
+                script = args[1];
+            }
+      
             string[] vs = args[0].Split(
                     new[] { "'" },
                     StringSplitOptions.None);
@@ -48,13 +52,7 @@ namespace Client
             String username = vs[0];
             String cURL = vs[1];
             String sURL = vs[2];
-            String script = "" ; 
             String[] sURLBackup;
-
-            if(args.Length > 1)
-            {
-                script = args[1];
-            }
 
             cli = new Cliente(username, cURL, sURL, script);
             Uri myUri = new Uri(cURL);
@@ -72,6 +70,8 @@ namespace Client
             Message mess = server.Response("Register", arg); //it should wait but it should be a task!
             sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
+            //check if the client has to be updated
+            updateClientState();
 
             if (args.Length == 1 || args.Length == 2)
             {
@@ -87,28 +87,42 @@ namespace Client
                 //if script client
                 if (args.Length == 2)
                 {
-                    script = System.IO.File.ReadAllText(args[1]);
-                    string[] commandList = script.Split(
+                    string allScript = System.IO.File.ReadAllText(script);
+                    string[] commandList = allScript.Split(
                         new[] { Environment.NewLine },
                         StringSplitOptions.None);
-                    foreach (string command in commandList)
-                    {
-                        cli.ProcessConsoleLine(command);
-                    }
-                }
-
-                while (run)
-                {
-                    Console.Write("Insert command: ");
-                    string command = Console.ReadLine();
-                    if (command.Split(
-                        new[] { " " }, StringSplitOptions.None)[0].Equals("quit"))
-                    {
-                        System.Environment.Exit(1);
+                    Console.WriteLine("If you wish the script to be run stpe-by-step write YES");
+                    String s = Console.ReadLine();
+                    if (s.ToLower().Equals("yes")){
+                        foreach (string command in commandList)
+                        {
+                            Console.WriteLine("Press Enter to execute the line:");
+                            Console.WriteLine(command);
+                            Console.ReadLine();
+                            cli.ProcessConsoleLine(command);
+                         }
                     }
                     else
                     {
-                        cli.ProcessConsoleLine(command);
+                        foreach (string command in commandList)
+                        {
+                            cli.ProcessConsoleLine(command);
+                        }
+                    }
+                } else {
+                    while (run)
+                    {
+                        Console.Write("Insert command: ");
+                        string command = Console.ReadLine();
+                        if (command.Split(
+                            new[] { " " }, StringSplitOptions.None)[0].Equals("quit"))
+                        {
+                                System.Environment.Exit(1);
+                        }
+                        else
+                        {
+                            cli.ProcessConsoleLine(command);
+                        }
                     }
                 }
             }
@@ -119,12 +133,10 @@ namespace Client
 
         }
 
-
         public string GetName()
         {
             return this.username; 
         }
-
 
         public string getURL()
         {
@@ -135,7 +147,6 @@ namespace Client
         {
             return this.sURL;
         }
-
 
         /**
          * Lists all the meeting proposals
@@ -173,7 +184,7 @@ namespace Client
                     {
                         // receives the created MP and adds it we later need to add to the proposals the ones we were invited to
                         Console.WriteLine("Proposal created with success");
-                        ShareProposal((MeetingProposal)output.getObj());
+                        ShareProposal((MeetingProposal)output.getObj(), new List<string>(), "");
                     }
                     else
                     {
@@ -197,26 +208,90 @@ namespace Client
         }
 
         // this can be to share the proposal we created or the redirect a received proposal
-        //TODO We have to make all calls to the Server fail proof
-        public void ShareProposal(MeetingProposal mp)
+        public void ShareProposal(MeetingProposal mp, List<string> urls, string serv)
         {
-            List<String> args = new List<String>();
-            List<string> listURLs = (List<string>) server.Response("GetSharedClientsList", args).getObj();
+            //update the list of clients from the server when the call didn't came from a client on 
+            //the same server
+            if(!serv.Equals(this.sURL)){
+                 try
+                 {
+                    Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                    bool taskCompleted = task.Wait(timeout);
 
+                    if (taskCompleted)
+                    {
+                        Message output = task.Result;
+                        //get the list for the new gossip group
+                        urls = (List<string>) output.getObj();
+                        //update the server identifier
+                        serv = this.sURL;
+                        //remove the client url from that list
+                        urls.Remove(cURL);
+                    
+                    }                
+                 } catch(Exception e){
+                    Console.WriteLine("Connection to server failed");
+                 }
+            }
+            if(serv.Equals(this.sURL) && urls.Count == 0){
+                //terminal condition
+            } else if(urls.Count < gossipParam){
+                //when we have less than gossipParam clients to share
+                foreach(string u in urls){
+                    ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), u);
+                    c.receiveProposal(mp, new List<string>() , serv);
+                }
+            } else{
+                //when we have more than gossipParam clients to share
+                List<string> myURLs = new List<string>();
+                List<string> removeList = new List<string>();
+                for(int w = 0; w < gossipParam; w++){
+                    removeList.Add(urls[w]);
+                }
+                foreach(string rmv in removeList){
+                    myURLs.Add(rmv);
+                    urls.Remove(rmv);
+                }
+                //divide the list and create a new one for each client
+                //given by the gossipParam
+                int standardSize = urls.Count/gossipParam;
+                int rest = urls.Count%gossipParam;
+                List<string>[] otherURLs = new List<string>[gossipParam];
+                for(int init = 0; init < otherURLs.Length; init++){
+                    otherURLs[init] = new List<string>();
+                }
+                int counter = 0;
 
-            foreach(string url in listURLs){
-                if(url != cURL){               
-                    ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), url);
-                    c.receiveProposal(mp);
+                //first distribute the client urls giving standardSize urls
+                //to each one
+                for(int i = 0; i < otherURLs.Length; i++){
+                    for(int j = 0; j < standardSize; j++){
+                        otherURLs[i].Add(urls[j + counter]);
+                    }
+                    counter += standardSize;
+                }
+
+                //if there is any urls left to distribute, do it, by giving one
+                //to each list
+                for(int i = 0; i < otherURLs.Length && rest > 0; i++){
+                    otherURLs[i].Add(urls[i + counter]);
+                    rest--;
+                }
+                //propagate the meeting proposals
+                for(int i = 0; i < myURLs.Count; i++){
+                    //prevent sending to itself
+                    if(myURLs[i] != cURL){               
+                        ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), myURLs[i]);
+                        if(c != null){
+                            c.receiveProposal(mp, otherURLs[i] , serv);
+                        }
+                    }
                 }
             }
         }
 
-        public void receiveProposal(MeetingProposal mp){
-           Console.WriteLine("Receive proposal");
-
+        public void receiveProposal(MeetingProposal mp, List<string> url, string serv){
             Boolean found = false;
-            Console.WriteLine(cs.getUser().getName());
 
             //validate if the client already as the proposal
             foreach(MeetingProposal m in cs.getUser().getMyMP()){
@@ -229,9 +304,8 @@ namespace Client
                 //add the proposal
                 cs.getUser().addMyMP(mp);
                 //share it with the other clients
-                ShareProposal(mp);
+                ShareProposal(mp, url, serv);
             }
-
         }
 
         private void Participate(String meetingTopic, String[] slots)
@@ -255,7 +329,7 @@ namespace Client
 
             try
             {
-                Task<Message> task = Task<Message>.Factory.StartNew(() => otherserver.Response("AddUserToProposal", args));
+                Task<Message> task = Task<Message>.Factory.StartNew(() => otherServer.Response("AddUserToProposal", args));
                 bool taskCompleted = task.Wait(timeout);
 
                 if (taskCompleted)
@@ -331,8 +405,6 @@ namespace Client
             Console.WriteLine("Request: Timeout, abort request.");
         }
 
-
-
         public String[] getBackupServerURL()
         {
             return sURLBackup;
@@ -400,7 +472,8 @@ namespace Client
 
             return result;
         }
-         private void ProcessConsoleLine(string line)
+        
+        private void ProcessConsoleLine(string line)
          {
             string[] commandArgs = line.Split(
                    new[] { " " },
@@ -409,11 +482,13 @@ namespace Client
             switch (commandArgs[0].ToLower())
             {
                 case "list":
-                    //list all available meetings
+                    //list all open meetings
                     List<MeetingProposal> list = ListProposals();
                     foreach (MeetingProposal proposal in list)
                     {
-                        System.Console.WriteLine(proposal.ToString());
+                        if(proposal.getStatus().ToString().ToLower().Equals("open")){
+                            Console.WriteLine(proposal.ToString());
+                        }
                     }
                     break;
                 case "create":
@@ -450,5 +525,46 @@ namespace Client
                     break;
             }
          }
+    
+        public static void updateClientState(){
+
+            try
+            {
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                bool taskCompleted = task.Wait(timeout);
+
+                if (taskCompleted)
+                {
+
+                    Message mess = task.Result;
+                    if(mess.getSucess()){
+                        List<string> urls = (List<string>) mess.getObj();
+                        ClientServ c = null;
+                        int index = 0;
+                        try{
+                            c = (ClientServ)Activator.GetObject(typeof(ClientServ), urls[index]);
+                        } catch(Exception e){
+                            c = (ClientServ)Activator.GetObject(typeof(ClientServ), urls[index + 1]);
+                        }
+                        List<MeetingProposal> update = c.getMeetingProposals();
+                        if(update == null || update.Count == 0){
+                            Console.WriteLine("Client doesn't have anything to update");
+                        } else{
+                            foreach(MeetingProposal m in update){
+                                cs.getUser().addMyMP(m);
+                            }
+                            Console.WriteLine("Client updated");
+                        }
+                
+                    }
+                }
+            } catch(Exception e){
+                Console.WriteLine("Unable to connect to the server");
+            }
+        }
+        
+        public  List<MeetingProposal> getMeetingProposals(){
+            return cs.getUser().getMyMP();
+        }
     }
 }
