@@ -15,7 +15,7 @@ namespace Client
         private static ISchedulingServer server;
         private static ClientServ cs;
 
-        private static int timeout = 5000;
+        private static int timeout = 20000;
         private static int gossipParam = 2;
 
         private String username;
@@ -23,8 +23,7 @@ namespace Client
         private String sURL;
         private String script;
         private String[] sURLBackup;
-
-        public delegate string RemoteAsyncDelegate();
+        private List<String> localClients;
 
         //Usage: put as args: <username> <scriptPath>
 
@@ -52,7 +51,9 @@ namespace Client
             String username = vs[0];
             String cURL = vs[1];
             String sURL = vs[2];
+
             String[] sURLBackup;
+            List<String> localClients = new List<String>();
 
             cli = new Cliente(username, cURL, sURL, script);
             Uri myUri = new Uri(cURL);
@@ -61,14 +62,35 @@ namespace Client
             ChannelServices.RegisterChannel(channel, false);
 
             cs = new ClientServ(cli);
-            RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
+
+            //RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
+
+            RemotingServices.Marshal(cs, myUri.Segments[1], typeof(ClientServ));
+            
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
             List<String> arg = new List<String>();
             arg.Add(cURL);
-            Message mess = server.Response("Register", arg); //it should wait but it should be a task!
+            Message mess = null; // = server.Response("Register", arg); //it should wait but it should be a task!
+
+            try
+            {
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("Register", arg));
+                task.Wait();
+                mess = task.Result;
+            }
+            catch (Exception e)
+            {
+                //Should we give here another server for the Client to connect?
+                Console.WriteLine("The server you tried to connect unfortunately is not available");
+                Console.WriteLine("Please close window and try to connect to another server adress");
+                Console.ReadLine();
+            }
+
             sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
+            cs.setBackupServerURL(sURLBackup);
+            cs.setLocalClients(localClients);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
             //check if the client has to be updated
             updateClientState();
@@ -100,7 +122,14 @@ namespace Client
                             Console.WriteLine(command);
                             Console.ReadLine();
                             cli.ProcessConsoleLine(command);
-                         }
+                        }
+                    }
+                    else
+                    {
+                        foreach (string command in commandList)
+                        {
+                            cli.ProcessConsoleLine(command);
+                        }
                     }
                     else
                     {
@@ -194,7 +223,6 @@ namespace Client
                     return;
                 }
             }
-            
             catch (Exception e) // we should specify the exceptions we get ( Is this the conection Exception ? )
             {
                 if (connectToBackup(0, new List<string>()))
@@ -384,13 +412,7 @@ namespace Client
                 if (taskCompleted)
                 {
                     output = task.Result;
-                    //Message output = server.Response("CloseMeetingProposal", args);
-                    List<String> messages = (List<String>)output.getObj();
-
-                    foreach (String s in messages)
-                    {
-                        Console.WriteLine(s);
-                    }
+                    Console.WriteLine((String)output.getMessage());
                 }
             }
             catch (Exception e)
@@ -402,7 +424,6 @@ namespace Client
                 return;
             }
 
-            Console.WriteLine("Request: Timeout, abort request.");
         }
 
         public String[] getBackupServerURL()
@@ -416,7 +437,7 @@ namespace Client
         }
 
         //TODO we have to make all calls to the server fail proof, both from freezes and crashes
-        private Boolean connectToBackup(int index, List<String> args)
+        public Boolean connectToBackup(int index, List<String> args)
         {
             Boolean _return = true;
             Console.WriteLine("Connection to Server lost. Trying to reconnect...");
@@ -425,19 +446,39 @@ namespace Client
                 args.Add(sURL);
                 this.sURL = sURLBackup[index];
                 server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[index]);
-                server.Response("RemoveServerFromView", args).getMessage();
+                //server.Response("RemoveServerFromView", args).getMessage();
+
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("RemoveServerFromView", args));
+                task.Wait();
 
                 List<String> arg = new List<String>();
                 arg.Add(cURL);
-                Message mess = server.Response("Register", arg); //should we count when the server is frozen here
+                Message mess; // = server.Response("Register", arg);
+
+                task = Task<Message>.Factory.StartNew(() => server.Response("Register", arg)); // should we send an error here ?
+                task.Wait();
+                mess = task.Result;
 
                 sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
                 Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
+
+                //coordinate local clients to reconnect to different backup servers
+                int pointer = index + 1 % sURLBackup.Length;
+                foreach (string url in localClients)
+                {
+                    if (url != cURL)
+                    {
+                        ClientServ c = (ClientServ)Activator.GetObject(typeof(ClientServ), url);
+                        c.connectToBackup(pointer % sURLBackup.Length, new List<String>());
+                        pointer++;
+                    }
+                }
 
                 _return = true;
             }
             catch(Exception e)
             {
+                Console.WriteLine(e);
                 try
                 {
                     if(index + 1 < sURLBackup.Length)
@@ -458,13 +499,31 @@ namespace Client
             return _return;
         }
 
+        public void setLocalClients(List<String> localClients)
+        {
+            this.localClients = localClients;
+        }
+
+        public void updateLocalClients()
+        {
+            //TODO what is this server crashes or wtv
+            //localClients = (List<String>)server.Response("getClientURLs", null).getObj();
+            Task<object> task = Task<object>.Factory.StartNew(() => server.Response("getClientURLs", null).getObj()); // should we send an error here ?
+            task.Wait();
+            localClients = (List<String>)task.Result;
+        }
+
         private ISchedulingServer findOriginServer(string meetingTopic){
 
             ISchedulingServer result = null;
             List<string> auxArgs = new List<string>();
             auxArgs.Add(meetingTopic);
-            Message urlMess = server.Response("GetMeetingProposalURL", auxArgs);
-            if(urlMess.getSucess()){
+            Message urlMess; // = server.Response("GetMeetingProposalURL", auxArgs); //TODO
+            Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetMeetingProposalURL", auxArgs));
+            task.Wait();
+            urlMess = task.Result;
+
+            if (urlMess.getSucess()){
                 result = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), (string)urlMess.getObj());
             } else {
                 Console.WriteLine(urlMess.getMessage());

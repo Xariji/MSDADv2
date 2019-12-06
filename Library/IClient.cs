@@ -28,5 +28,7 @@ namespace Library
         string getClientURL();
 
         void status();
+
+        void updateLocalClients();
     }
 }

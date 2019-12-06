@@ -1,4 +1,5 @@
 ﻿using System;
+using Library;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -31,12 +32,6 @@ namespace Server
             sc.status();
         }
 
-        public void addRoom(String location, int capacity, String roomName)
-        {
-            sc.AddMeetingRoom(location, roomName,capacity);
-        }
-
-
         public void initializeView(String serverid, String serverurl)
         {
             sc.initializeView(serverid, serverurl);
@@ -45,6 +40,11 @@ namespace Server
         public void addServerToView(String serverid, String serverurl)
         {
             sc.addServerToView(serverid, serverurl);
+        }
+
+        public void updateLocations(String mls)
+        {
+            sc.updateLocations(mls);
         }
     }
 }

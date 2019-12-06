@@ -1,6 +1,7 @@
 ﻿using Client;
 using PCS;
 using Server;
+using Library;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -34,6 +35,8 @@ namespace PuppetMaster
 
         int serverNo = 1, clientNo = 1;
 
+        List<MeetingLocation> meetingLocations = new List<MeetingLocation>();
+
         public PMForm()
         {
             InitializeComponent();
@@ -41,6 +44,11 @@ namespace PuppetMaster
             addURL.Text = "tcp://localhost:80" + serverNo.ToString().PadLeft(2, '0') +"/mcm";
             username.Text = "user" + clientNo.ToString().PadLeft(2, '0');
             clientURL.Text = "tcp://localhost:60" + clientNo.ToString().PadLeft(2, '0') + "/cc";
+
+            labelRoomAdd.Text = "";
+            locationName.Items.Add("Add location");
+            locationNameNew.Text = "Name of location...";
+            locationName.SelectedIndex = 0;
         }
 
         // We gonna use the PCS here to create a Server
@@ -51,7 +59,6 @@ namespace PuppetMaster
             int maxFaults = Int32.Parse(addMaxFaults.Text);
             int minDelay = Int32.Parse(addMinDelay.Text);
             int maxDelay = Int32.Parse(addMaxDelay.Text);
-
             addServer(serverID, URL, maxFaults, minDelay, maxDelay);
         }
 
@@ -60,6 +67,7 @@ namespace PuppetMaster
             PCSService pCs;
             Uri myUri = new Uri(URL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
+            Task task;
 
 
 
@@ -86,7 +94,8 @@ namespace PuppetMaster
             else 
             {
                 pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
-                pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
+                task = Task.Factory.StartNew(() => pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay));
+                task.Wait();
             }
             String psURLHost = myUri.Host;
             int psURLPort = myUri.Port + 1000;
@@ -94,10 +103,23 @@ namespace PuppetMaster
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             foreach(KeyValuePair<String, String> server in urlServers)
             {
-                ps.initializeView(server.Key, server.Value);
+                task = Task.Factory.StartNew(() => ps.initializeView(server.Key, server.Value));
+                task.Wait();
             }
             urlServers.Add(serverID, URL);
-            ps.addServerToView(serverID, URL);
+
+            String con = "";
+            foreach (MeetingLocation mloc in meetingLocations)
+            {
+                con += mloc.encodeSOAP() + "#";
+            }
+            if(con.Length > 1)
+            {
+                con = con.Remove(con.Length - 1);
+                ps.updateLocations(con);
+            }
+            task = Task.Factory.StartNew(() => ps.addServerToView(serverID, URL));
+            task.Wait();
 
             serverNo++;
             addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
@@ -106,9 +128,9 @@ namespace PuppetMaster
 
         private void addClient_Click(object sender, EventArgs e)
         {
-            String userName = username.Text;
-            String cURL = clientURL.Text;
-            String sURL = serverURL.Text;
+            string userName = username.Text;
+            string cURL = clientURL.Text;
+            string sURL = serverURL.Text;
 
             addCli(userName, cURL, sURL);
         }
@@ -117,7 +139,7 @@ namespace PuppetMaster
             PCSService pCs;
             Uri myUri = new Uri(cURL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
-
+            Task task;
 
 
             // get local IP addresses
@@ -130,6 +152,7 @@ namespace PuppetMaster
                 Process process;
                 if(scriptPath != "")
                 {
+                    Console.WriteLine("pipocas");
                     process = new Process
                     {
                         StartInfo = new ProcessStartInfo
@@ -139,6 +162,8 @@ namespace PuppetMaster
 
                         }
                     };
+
+                    scriptPath = "";
                 }
                 else
                 {
@@ -159,7 +184,8 @@ namespace PuppetMaster
             else // its not local
             {
                 pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000/pcs");
-                pCs.createClientProcess(userName, cURL, sURL, scriptPath);
+                task = Task.Factory.StartNew(() => pCs.createClientProcess(userName, cURL, sURL, scriptPath));
+                task.Wait();
             }
 
             urlClients.Add(userName, cURL);
@@ -206,7 +232,8 @@ namespace PuppetMaster
 
                 Uri myUri = new Uri(sURL);
                 PCSService pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
-                pCs.crashServer(serverID);
+                Task task = Task.Factory.StartNew(() => pCs.crashServer(serverID));
+                task.Wait();
             }
         }
         
@@ -226,7 +253,8 @@ namespace PuppetMaster
             int psURLPort = myUri.Port + 1000;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-            ps.freeze();
+            Task task = Task.Factory.StartNew(() => ps.freeze());
+            task.Wait();
         }
 
         private void getStatus_Click(object sender, EventArgs e)
@@ -243,7 +271,8 @@ namespace PuppetMaster
                 String psURLHost = myUri.Host;
                 int psURLPort = myUri.Port + 1000;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-                ps.status();
+                Task task = Task.Factory.StartNew(() => ps.status());
+                task.Wait();
             }
         }
         
@@ -265,9 +294,155 @@ namespace PuppetMaster
             int psURLPort = myUri.Port + 1000;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-            ps.unfreeze();
+            Task task = Task.Factory.StartNew(() => ps.unfreeze());
+            task.Wait();
         }
 
+        private void locationNameNew_Enter(object sender, EventArgs e)
+        {
+            if (locationNameNew.Text == "Name of location...")
+            {
+                locationNameNew.Text = "";
+            }
+        }
+
+        private void locationNameNew_Leave(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(locationNameNew.Text))
+            {
+                locationNameNew.Text = "Name of location...";
+            }   
+        }
+
+        private void locationName_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (locationName.SelectedItem.Equals("Add location"))
+            {
+                locationNameNew.Visible = true;
+            } else
+            {
+                locationNameNew.Visible = false;
+            }
+        }
+
+        private void addRoom_Click(object sender, EventArgs e)
+        {
+            if (locationName.SelectedItem.Equals("Add location"))
+            {
+                MeetingLocation ml = new MeetingLocation(locationNameNew.Text);
+                ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
+                meetingLocations.Add(ml);
+                labelRoomAdd.Text = "Room \"" + roomName.Text + "\" successfully added to the " + ml.getName() + " location";
+            }
+            else
+            {
+                foreach (MeetingLocation ml in meetingLocations)
+                {
+                    if (ml.getName() == locationName.SelectedItem.ToString().Substring(0, locationName.SelectedItem.ToString().LastIndexOf(' ')))
+                    {
+                        bool nameUsed = false;
+                        foreach (MeetingRoom mr in ml.GetMeetingRooms())
+                        {
+                            if (mr.GetName() == roomName.Text)
+                            {
+                                nameUsed = true;
+                            }
+                        }
+                        if (!nameUsed)
+                        {
+                            ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
+                            labelRoomAdd.Text = "Room \"" + roomName.Text + "\" successfully added to the " + ml.getName() + " location";
+                        }
+                        else
+                        {
+                            labelRoomAdd.Text = "Error: Room with name \"" + roomName.Text + "\" already exists in " + ml.getName() + " location";
+                            return;
+                        }
+                    }
+                }
+            }
+            updateMeetingLocationsOnAllServers();
+            locationName.Items.Clear();
+            foreach (MeetingLocation ml in meetingLocations)
+            {
+                locationName.Items.Add(ml.getName() + " (" + ml.getRoomsCount() + ")");
+            }
+            locationName.Items.Add("Add location");
+            locationNameNew.Text = "Name of location...";
+            locationName.SelectedIndex = 0;
+        }
+
+        private void addRoom_Script(String location, int capacity, String roomName)
+        {
+            bool locationExists = false;
+            foreach (MeetingLocation ml in meetingLocations)
+            {
+                if (ml.getName() == location)
+                {
+                    locationExists = true;
+                    bool nameUsed = false;
+                    foreach (MeetingRoom mr in ml.GetMeetingRooms())
+                    {
+                        if (mr.GetName() == roomName)
+                        {
+                            nameUsed = true;
+                        }
+                    }
+                    if (!nameUsed)
+                    {
+                        ml.addRoom(new MeetingRoom(roomName, capacity));
+                        labelRoomAdd.Text = "Room \"" + roomName + "\" successfully added to the " + ml.getName() + " location";
+                    }
+                    else
+                    {
+                        labelRoomAdd.Text = "Error: Room with name \"" + roomName + "\" already exists in " + ml.getName() + " location";
+                        return;
+                    }
+                }
+            }
+            if (!locationExists)
+            {
+                MeetingLocation ml = new MeetingLocation(location);
+                ml.addRoom(new MeetingRoom(roomName, capacity));
+                meetingLocations.Add(ml);
+                labelRoomAdd.Text = "Room \"" + roomName + "\" successfully added to the " + ml.getName() + " location";
+            }
+            updateMeetingLocationsOnAllServers();
+            locationName.Items.Clear();
+            foreach (MeetingLocation ml in meetingLocations)
+            {
+                locationName.Items.Add(ml.getName() + " (" + ml.getRoomsCount() + ")");
+            }
+            locationName.Items.Add("Add location");
+            locationNameNew.Text = "Name of location...";
+            locationName.SelectedIndex = 0;
+        }
+
+        private void updateMeetingLocationsOnAllServers()
+        {
+            String con = "";
+            foreach (MeetingLocation mloc in meetingLocations)
+            {
+                con += mloc.encodeSOAP() + "#";
+            }
+
+            foreach (String url in urlServers.Values)
+            {
+                Uri myUri = new Uri(url);
+                Task task;
+                String psURLHost = myUri.Host;
+                int psURLPort = myUri.Port + 1000;
+                PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
+                if(con.Length > 1)
+                {
+                    String conCorrected = con.Remove(con.Length - 1);
+
+
+                    task = Task.Factory.StartNew(() => ps.updateLocations(conCorrected));
+                    task.Wait();
+                }
+            }
+        }
 
         private void puppiScript_Click(object sender, EventArgs e)
         {
@@ -287,7 +462,7 @@ namespace PuppetMaster
             }
         }
 
-        private void runPuppiScript_Click(object sender, EventArgs e)
+        private void runPuppiS_Click(object sender, EventArgs e)
         {
             if (!puppiScript.Equals(""))
             {
@@ -300,10 +475,8 @@ namespace PuppetMaster
                     ProcessScriptLine(command);
                 }
             }
-            
         }
 
-        //TODO TEST
         private void ProcessScriptLine(String command)
         {
             string[] commandArgs = command.Split(
@@ -312,15 +485,20 @@ namespace PuppetMaster
 
             switch (commandArgs[0].ToLower())
             {
-               
-                case "addroom":        
+                case "addroom":
+                    addRoom_Script(commandArgs[1], Int32.Parse(commandArgs[2]), commandArgs[3]);
                     break;
                 case "server":
                     addServer(commandArgs[1], commandArgs[2], Int32.Parse(commandArgs[3]), Int32.Parse(commandArgs[4])
                         , Int32.Parse(commandArgs[5]));
                     break;
                 case "client":
+                    if(commandArgs.Length == 5) 
+                    {
+                        scriptPath = commandArgs[4];
+                    }
                     addCli(commandArgs[1], commandArgs[2], commandArgs[3]);
+
                     break;
                 case "status":
                     getStat();

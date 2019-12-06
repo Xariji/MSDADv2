@@ -78,6 +78,10 @@ namespace Library
             return fs.ToString();
         }
 
+        public User getCoordinator()
+        {
+            return coordinator;
+        }
         public List<Slot> getSlots()
         {
             return slots;

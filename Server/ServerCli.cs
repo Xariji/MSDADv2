@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Runtime.Remoting;
-
+using System.Threading.Tasks;
 
 namespace Server
 {
@@ -12,8 +12,16 @@ namespace Server
     {
 
         List<MeetingProposal> meetingProposals;
+        List<MeetingProposal>[] meetingProposalsBackup;
         List<MeetingLocation> meetingLocations;
         List<IClient> clientsList;
+
+        //Handle closes
+        Dictionary<int , string> closes = new Dictionary<int, string>();
+        private int request = 1;
+        private int seq = 0;
+        private static int timeout = 10000;
+
 
         int currMPId;
         SchedulingServer server;
@@ -33,6 +41,7 @@ namespace Server
         public ServerCli(SchedulingServer server)
         {
             meetingProposals = new List<MeetingProposal>();
+            meetingProposalsBackup = new List<MeetingProposal>[0];
             meetingLocations = new List<MeetingLocation>();
             MeetingLocation ml = new MeetingLocation("Lisboa");
             ml.addRoom(new MeetingRoom("Room-C1", 5));
@@ -54,6 +63,12 @@ namespace Server
 
             IClient client = (IClient)Activator.GetObject(typeof(IClient), url);
             clientsList.Add(client);
+
+            //Update local client list on all Clients
+            foreach(IClient ic in clientsList)
+            {
+                ic.updateLocalClients();
+            }
 
             Message mess = new Message(true, server.getBackupServer(), "conected to Server " + server.GetId());
             Console.WriteLine("Client " + client.getUser().getName() + " connected.");
@@ -136,14 +151,14 @@ namespace Server
                 if (slotsExists)
                 {
                     finalExists = true;
-
+                    
                     mp = new MeetingProposal(user, topic, minParticipants, slotsList, users);
                     meetingProposals.Add(mp);
                     user.addMyMP(mp);
                     currMPId++;
                     Console.WriteLine("Meeting " + mp.getMPTopic() + " created successfully.");
                     message = "Meeting " + mp.getMPTopic() + " created successfully.";
-
+                    updateBackupProposals();
                 }
                 else
                 {
@@ -191,17 +206,20 @@ namespace Server
         {
             if (mp.getMPTopic() == meetingTopic)
             {
-
+                Monitor.Enter(mp);
                 if (mp.canJoin(user))
                 {
                     mp.addMeetingRec(user, slotsList);
                     user.addActiveMP(mp);
                     Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
+                    updateBackupProposals(); 
                 }
                 else
                 {
                     Console.WriteLine("User " + user.getName() + " failed joining meeting " + meetingTopic + ". Meeting is restricted.");
                 }
+                Monitor.Pulse(mp);
+                Monitor.Exit(mp);
                 //ID of MeetingProposal found: return 1
                 ic.setUser(user);
                 return new Message(mp.canJoin(user), 1, "");
@@ -218,43 +236,64 @@ namespace Server
         meetingLocations.Add(ml);
     }
 
-    private Message CloseMeetingProposal(String meetingTopic, string username)
+    public Message CloseMeetingProposal(String meetingTopic, string username)
     {
-                Console.WriteLine("Vou fechar a minha");
         IClient ic = findClient(username);
         User user = ic.getUser();
-                            Console.WriteLine("Vou fechar a minha");
         foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
             {
-                if (mp.getStatus() == MeetingProposal.Status.Open)
+                Monitor.Enter(mp);
+                if (mp.getCoordinator().getName().Equals(user.getName()))
                 {
-                    Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
-                    user.removeMyMP(mp);
-                    Console.WriteLine("---Meeting removed from user's myMP list.");
-                    foreach (IClient ict in clientsList)
+                    if (mp.getStatus() == MeetingProposal.Status.Open)
                     {
-                        ict.getUser().removeActiveMP(mp);
+                        Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
+                        user.removeMyMP(mp);
+                        Console.WriteLine("---Meeting removed from user's myMP list.");
+                        Tuple<Boolean, String> dm = DecideMeeting(mp);
+                        if (dm.Item1)
+                        {
+                            mp.setStatus(MeetingProposal.Status.Closed);
+                            Console.WriteLine("---Meeting closed successfully.");
+                            ic.setUser(user);
+                            updateBackupProposals();
+                            Monitor.Pulse(mp);
+                            Monitor.Exit(mp);
+                            return new Message(true, dm.Item2, "Meeting closed successfully.");
+                        }
+                        else
+                        {
+                            mp.setStatus(MeetingProposal.Status.Cancelled);
+                            Console.WriteLine("---Meeting cancelled.");
+                            ic.setUser(user);
+                            Monitor.Pulse(mp);
+                            Monitor.Exit(mp);
+                            return new Message(true, null, "Meeting cancelled.");
+                        }
                     }
-                    Console.WriteLine("---Meeting removed from all users activeMP list.");
-                    Tuple<Boolean, String> dm = DecideMeeting(mp);
-                    if (dm.Item1)
+                    else if (mp.getStatus() == MeetingProposal.Status.Closed)
                     {
-                        mp.setStatus(MeetingProposal.Status.Closed);
-                        Console.WriteLine("---Meeting closed successfully.");
-                        Console.WriteLine(dm.Item2);
-                        ic.setUser(user);
-                        return new Message(true, dm.Item2, "Meeting closed successfully.");
+                        Monitor.Pulse(mp);
+                        Monitor.Exit(mp);
+
+                        return new Message(true, null, "Meeting already closed.");
                     }
                     else
                     {
-                        mp.setStatus(MeetingProposal.Status.Cancelled);
-                        Console.WriteLine("---Meeting cancelled.");
-                        ic.setUser(user);
+                        Monitor.Pulse(mp);
+                        Monitor.Exit(mp);
                         return new Message(true, null, "Meeting cancelled.");
                     }
                 }
+                else
+                {
+                    Monitor.Pulse(mp);
+                    Monitor.Exit(mp);
+                    return new Message(true, null, "User not allowed to close meeting.");
+                }
+                
             }
         }
         ic.setUser(user);
@@ -267,7 +306,7 @@ namespace Server
 
     // with this in the meeting locations we have to check if the rooms is gonna be occupied for the day
     // and if its not we have to record the unavailability
-    private Tuple<Boolean, String> DecideMeeting(MeetingProposal mp)
+    public Tuple<Boolean, String> DecideMeeting(MeetingProposal mp)
     {
         //Identify the most popular slot
         List<Tuple<Slot, int>> popularSlots = new List<Tuple<Slot, int>>();
@@ -322,8 +361,10 @@ namespace Server
                                     Console.WriteLine("User " + usersToExclude[i].getName() + " excluded from meeting.");
                                 }
                             }
-                            //Book room
-                            mr.book(time);
+
+                            //Book room on all servers
+                             bookRoom(mr, time);
+                             
                             //Add users to participants list
                             foreach (IClient ic in clientsList)
                             {
@@ -339,6 +380,35 @@ namespace Server
             }
         }
         return Tuple.Create(false, "");
+    }
+
+    public void bookRoom(MeetingRoom mr, string time)
+    {
+        lock (meetingLocations)
+        {
+            foreach(MeetingLocation ml in meetingLocations)
+            {
+                foreach(MeetingRoom room in ml.GetMeetingRooms())
+                {
+                    if(room.GetName() == mr.GetName())
+                    {
+                        if (room.isBooked(time))
+                        {
+                            return;
+                        }
+                        else
+                        {
+                            room.book(time);
+                        }
+                    }
+                }
+            }
+        }
+        if (!server.getBackupServer().Equals(server.getURL()))
+        {
+            ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
+            bscli.bookRoom(mr, time);
+        }
     }
 
     private int getCurrMPId()
@@ -429,7 +499,6 @@ namespace Server
 
     private Message GetServerId()
     {
-        Console.WriteLine("toma la o serverID");
         return new Message(true, server.GetId(), "");
     }
 
@@ -530,7 +599,7 @@ namespace Server
         }
         else if (request == "CloseMeetingProposal") // close
         {
-            mess = CloseMeetingProposal(args[0], args[1]);
+            mess = closeRequest(args[0], args[1]); //CloseMeetingProposal(args[0], args[1]);        
         }
         else if (request == "AddMeetingProposal") //create
         {
@@ -554,8 +623,6 @@ namespace Server
         else if (request == "AddUserToProposal") //join 
         {
             string[] slots = args[2].Split(' ');
-                foreach (String s in slots) Console.WriteLine(s);
-            Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
             mess = AddUserToProposal(args[0], args[1], slots); 
         }
         else if (request == "GetServerId") //get serverID 
@@ -565,12 +632,18 @@ namespace Server
         else if (request == "RemoveServerFromView") //get serverID
         {
             mess = removeServerFromView(args);
+            recreateBackupProposals();
         }
         else if(request == "GetSharedClientsList"){
             mess = getSharedClientsList();
         }
-        else if(request == "GetMeetingProposalURL"){
+        else if (request == "GetMeetingProposalURL")
+        {
             mess = GetMeetingProposalURL(args[0]);
+        }
+        else if (request == "getClientURLs")
+        {
+            mess = getClientURLs();
         }
         else
         {
@@ -610,6 +683,9 @@ namespace Server
                     {
                         client.setBackupServerURL(server.getBackupServer());
                     }
+                    //recreate BackupProposals
+                    recreateBackupProposals();
+
                     Console.WriteLine("Backup server in " + clientsList.Count + " client(s) updated.");
                     Console.WriteLine("--------- END VIEW UPDATE ---------");
                 }
@@ -642,20 +718,21 @@ namespace Server
 
                             if (!server.getBackupServer()[0].Equals(server.getURL()))
                             {
-                                tryConnectToBackup(0);
+                                tryConnectToBackup(0, serverurls);
 
-                                void tryConnectToBackup(int indexBackupUpdate)
+                                void tryConnectToBackup(int indexBackupUpdate, List<String> args)
                                 {
                                     try
                                     {
                                         ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
-                                        bscli.addServerToView(serverid, serverurl);
+                                        bscli.removeServerFromView(args);
                                     }
                                     catch (Exception e)
                                     {
                                         if (indexBackupUpdate + 1 < server.getBackupServer().Length)
                                         {
-                                            tryConnectToBackup(indexBackupUpdate + 1);
+                                            args.Add(server.getBackupServer()[indexBackupUpdate]);
+                                            tryConnectToBackup(indexBackupUpdate + 1, args);
                                         }
                                         else
                                         {
@@ -677,6 +754,10 @@ namespace Server
                 }
 
                 
+            }
+            for(int i=0; i<serverurls.Count; i++)
+            {
+                meetingProposals.AddRange(meetingProposalsBackup[i]);
             }
             return new Message(true, null, "");
         }
@@ -738,6 +819,115 @@ namespace Server
             return null;
         }
 
+        public void updateLocations(String mls)
+        {
+            List<MeetingLocation> mlsList = new List<MeetingLocation>();
+
+            String[] args = mls.Split('#');
+            foreach (String str in args)
+            {
+                MeetingLocation ml = new MeetingLocation("");
+                ml.decodeSOAP(str);
+                mlsList.Add(ml);
+            }
+            meetingLocations = mlsList;
+            Console.WriteLine("Meeting locations updated.");
+        }
+
+        public void recreateBackupProposals()
+        {
+            Console.WriteLine("Recreation of proposal backups started");
+            foreach (String url in server.getView().Values)
+            {
+                try
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
+                    bscli.createNewMPBackup();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Excpetion recreateBackupProposals: " + e);
+                }
+            }
+            updateBackupProposals();
+            Console.WriteLine("Recreation of proposal backups finished");
+        }
+
+        public void updateBackupProposals()
+        {
+            foreach (String url in server.getView().Values)
+            {
+                try
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
+                    bscli.fillMPBackup();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Excpetion updateBackupProposals: " + e.Message + " on url: " + url);
+
+                }
+            }
+        }
+
+        public void createNewMPBackup()
+        {
+            try
+            {
+                lock (meetingProposalsBackup)
+                {
+                    meetingProposalsBackup = new List<MeetingProposal>[server.getBackupServer().Length];
+                }
+            }
+            catch(Exception e)
+            {
+                Console.WriteLine(e.Message);
+            }
+            
+        }
+
+        public void fillMPBackup()
+        {
+            Console.WriteLine("Update of proposal backups started");
+            for (int i = 0; i < server.getBackupServer().Length; i++)
+            {
+                try
+                {
+                    ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[i]);
+                    bscli.setMPBackup(i, meetingProposals);
+                }
+                catch(Exception e)
+                {
+                    removeServerFromView(new List<String>() { server.getBackupServer()[i] });
+                    recreateBackupProposals();
+                    fillMPBackup();
+                }
+                    
+            }
+            Console.WriteLine("Update of proposal backups finished");
+        }
+
+        public void setMPBackup(int index, List<MeetingProposal> mpList)
+        {
+            lock (meetingProposalsBackup)
+            {
+                if (meetingProposalsBackup.Length > 0)
+                {
+                    meetingProposalsBackup[index] = mpList;
+                }
+            }
+        }
+
+        public Message getClientURLs()
+        {
+            List<String> clientURLs = new List<String>();
+            foreach(IClient ic in clientsList)
+            {
+                clientURLs.Add(ic.getClientURL());
+            }
+            return new Message(true, clientURLs, "");
+        }
+
         public Message GetMeetingProposalURL(string mpTopic){
 
             //look if the server that has the mp is this one
@@ -784,5 +974,153 @@ namespace Server
         public List<MeetingProposal> getServerMeetingProposals(){
             return meetingProposals;
         }
+
+        public Message closeRequest(string topic, string username)
+        {
+            string primary = server.getView().Values[0];
+            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
+
+            Message mess;// = serv.sequence(server.getURL(), topic, username);
+
+            if (!primary.Equals(server.getURL()))
+            {
+                Task<Message> task = Task<Message>.Factory.StartNew(() => serv.sequence(server.getURL(), topic, username));
+                bool done = task.Wait(timeout);
+
+                if (done)
+                {
+                    mess = task.Result;
+                }
+                else
+                {
+                    mess = new Message(false, null, "Close not successfull");
+                }
+            }
+            else
+            {
+                Task<Message> task = Task<Message>.Factory.StartNew(() => sequence(server.getURL(), topic, username));
+                bool done = task.Wait(timeout);
+
+                if (done)
+                {
+                    mess = task.Result;
+                }
+                else
+                {
+                    mess = new Message(false, null, "Close not successfull");
+                }
+            }
+           
+            return mess;
+        }
+
+        public Message sequence(string url, string topic, string username)
+        {
+            Message mess = null;
+
+            if(!closes.ContainsValue(url + " " + topic + " " + username)) { 
+                
+                seq++;
+                closes.Add(seq, url + " " + topic + " " + username);
+
+                Monitor.Enter(server); //lock
+                try
+                {
+                    closes.TryGetValue(request, out string str);
+                    string[] data = str.Split(' ');
+
+
+                    if (!data[0].Equals(server.getURL()))
+                    {
+                        ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
+                        Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
+                        bool done = task.Wait(timeout);
+
+                        if (done)
+                        {
+                            mess = task.Result;
+                        }
+                        else
+                        {
+                            mess = new Message(false, null, "Server to close timed out abort operation");
+                        }
+                    }
+                    else
+                    {
+                        Task<Message> task = Task<Message>.Factory.StartNew(() => CloseMeetingProposal(data[1], data[2]));
+                        bool done = task.Wait(timeout);
+
+                        if(done)
+                        {
+                            mess = task.Result;
+                        }
+                        else
+                        {
+                            mess = new Message(false, null, "Server to close timed out abort operation");
+                        }
+                    }
+
+                    request++;
+                }
+                finally
+                {
+                    Monitor.Pulse(server);
+                    Monitor.Exit(server);
+                }
+            }
+            else
+            {
+                mess = new Message(false, null, "Duplicated request");
+            }
+
+            return mess;
+        }
+
+
+        /*A process wishing to TO-multicast a message m to group g attaches a unique identifier id(m) to it.
+        The messages for g are sent to the sequencer for g, sequencer(g), as well as to the
+        members of g. (The sequencer may be chosen to be a member of g.) 
+        The process
+        sequencer(g) maintains a group-specific sequence number sg, which it uses to assign
+        increasing and consecutive sequence numbers to the messages that it B-delivers.
+        It announces the sequence numbers by B-multicasting order messages to g(see Figure
+        15.13 for the details).
+        A message will remain in the hold-back queue indefinitely until it can be TO delivered according 
+        to the corresponding sequence number.Since the sequence numbers
+        are well defined (by the sequencer), the criterion for total ordering is met.
+        Furthermore,if the processes use a FIFO-ordered variant of B-multicast, then the totally ordered
+        multicast is also causally ordered. We leave the reader to show this.
+                public string closeRequest(string id)
+                {
+                    ServerCli serv; // we gonna make this the primary server;
+                    foreach(String url in server.getView().Values)
+                    {
+                        serv = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
+                        serv.receiveSeq(id);
+                    }
+                    serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
+                    serv.sequencer(id);
+                    return null;
+                }
+                public string receiveSeq(String id)
+                {
+                    closes.Add(id);
+                    return null;
+                }
+                public string shouldGo(String id, int S)
+                {
+                    if(S == request)
+                    {
+                    }
+                    return null;
+                }
+                public bool sequencer(string id)
+                {
+                    seq = seq + 1;
+                    return false;
+                }
+                */
+
+
     }
-    }
+}

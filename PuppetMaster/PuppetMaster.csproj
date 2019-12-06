@@ -84,6 +84,10 @@
       <Project>{5b56f4f4-7ef9-47ce-b45d-4c913ecf6ef8}</Project>
       <Name>Client</Name>
     </ProjectReference>
+    <ProjectReference Include="..\Library\Library.csproj">
+      <Project>{c7224fee-d88c-4a52-bcf4-eae30b9b0b1f}</Project>
+      <Name>Library</Name>
+    </ProjectReference>
     <ProjectReference Include="..\PCS\PCS.csproj">
       <Project>{89ea3d67-b8bc-43a3-abea-761a11839f3a}</Project>
       <Name>PCS</Name>
