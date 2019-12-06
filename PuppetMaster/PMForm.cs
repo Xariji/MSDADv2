@@ -28,7 +28,10 @@ namespace PuppetMaster
 
         Dictionary<String, Process> sProcesses = new Dictionary<string, Process>();
 
-        String scriptPath = "";
+        private string scriptPath = "";
+        private string puppScript = "";
+
+
 
         int serverNo = 1, clientNo = 1;
 
@@ -57,9 +60,11 @@ namespace PuppetMaster
             int minDelay = Int32.Parse(addMinDelay.Text);
             int maxDelay = Int32.Parse(addMaxDelay.Text);
 
-            //we need the URL to know in which machine is it
-            // If it's not on the same machine as the PuppetMaster we need to check the PCS
-            // on the machine we want to call
+            addServer(serverID, URL, maxFaults, minDelay, maxDelay);
+        }
+
+        private void addServer(string serverID, string URL, int maxFaults, int minDelay, int maxDelay) { 
+
             PCSService pCs;
             Uri myUri = new Uri(URL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
@@ -124,9 +129,10 @@ namespace PuppetMaster
             String cURL = clientURL.Text;
             String sURL = serverURL.Text;
 
-            //we need the URL to know in which machine is it
-            // If it's not on the same machine as the PuppetMaster we need to check the PCS
-            // on the machine we want to call
+            addCli(userName, cURL, sURL);
+        }
+
+        private void addCli(string userName, string cURL, string sURL) { 
             PCSService pCs;
             Uri myUri = new Uri(cURL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
@@ -198,12 +204,15 @@ namespace PuppetMaster
         }
 
         // This method is used to crash a server 
-
         private void button5_Click(object sender, EventArgs e)
         {
             String serverID = crashID.Text;
-
-            if(sProcesses.TryGetValue(serverID, out Process pr))
+            Kill(serverID);
+            
+        }
+        private void Kill(String serverID)
+            {
+            if (sProcesses.TryGetValue(serverID, out Process pr))
             {
                 pr.Kill();
 
@@ -212,17 +221,22 @@ namespace PuppetMaster
             }
             else // if it's not local we have to call PCS
             {
-                urlServers.TryGetValue(serverID, out string sURL); 
-                
+                urlServers.TryGetValue(serverID, out string sURL);
+
                 Uri myUri = new Uri(sURL);
                 PCSService pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
                 pCs.crashServer(serverID);
             }
-
         }
+        
         private void Freeze_Click(object sender, EventArgs e)
         {
             String servID = freezeID.Text;
+            Freez(servID);
+        }
+
+        private void Freez(string servID)
+        {
             urlServers.TryGetValue(servID, out string url);
 
             Uri myUri = new Uri(url);
@@ -232,10 +246,14 @@ namespace PuppetMaster
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             ps.freeze();
-
         }
 
         private void getStatus_Click(object sender, EventArgs e)
+        {
+            getStat();
+        }
+
+        private void getStat()
         {
             foreach (String url in urlServers.Values)
             {
@@ -247,10 +265,17 @@ namespace PuppetMaster
                 ps.status();
             }
         }
+        
 
         private void Unfreeze_Click(object sender, EventArgs e)
         {
             String servID = unfreezeID.Text;
+            Unfreez(servID);
+
+        }
+        
+        private void Unfreez(string servID)
+        {
             urlServers.TryGetValue(servID, out String url);
 
             Uri myUri = new Uri(url);
@@ -360,19 +385,75 @@ namespace PuppetMaster
 
         private void puppiScript_Click(object sender, EventArgs e)
         {
+
             OpenFileDialog openFileDialog = new System.Windows.Forms.OpenFileDialog();
             DialogResult result = openFileDialog.ShowDialog(); // Show the dialog.
+
             if (result == DialogResult.OK)
             {
-                scriptPath = openFileDialog.FileName;
-                selectScript.Text = openFileDialog.FileName.Split('\\').Last();
+                puppScript = openFileDialog.FileName;
+                puppiScript.Text = openFileDialog.FileName.Split('\\').Last();
             }
             else if (result == DialogResult.Cancel)
             {
-                scriptPath = "";
+                puppScript = "";
                 selectScript.Text = "Select script";
             }
         }
 
+        private void runPuppiScript_Click(object sender, EventArgs e)
+        {
+            if (!puppiScript.Equals(""))
+            {
+                string script = System.IO.File.ReadAllText(puppScript);
+                string[] commandList = script.Split(
+                    new[] { Environment.NewLine },
+                    StringSplitOptions.None);
+                foreach (string command in commandList)
+                {
+                    ProcessScriptLine(command);
+                }
+            }
+            
+        }
+
+        //TODO TEST
+        private void ProcessScriptLine(String command)
+        {
+            string[] commandArgs = command.Split(
+                   new[] { " " },
+                   StringSplitOptions.None);
+
+            switch (commandArgs[0].ToLower())
+            {
+               
+                case "addroom":        
+                    break;
+                case "server":
+                    addServer(commandArgs[1], commandArgs[2], Int32.Parse(commandArgs[3]), Int32.Parse(commandArgs[4])
+                        , Int32.Parse(commandArgs[5]));
+                    break;
+                case "client":
+                    addCli(commandArgs[1], commandArgs[2], commandArgs[3]);
+                    break;
+                case "status":
+                    getStat();
+                    break;
+                case "wait":
+                    System.Threading.Thread.Sleep(Int32.Parse(commandArgs[1]));
+                    break;
+                case "freeze":
+                    Freez(commandArgs[1]);
+                    break;
+                case "unfreeze":
+                    Unfreez(commandArgs[1]);
+                    break;
+                case "crash":
+                    Kill(commandArgs[1]);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 }
