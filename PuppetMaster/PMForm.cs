@@ -326,9 +326,7 @@ namespace PuppetMaster
         //TODO
         private void addRoom_Click(object sender, EventArgs e)
         {
-          
-        
-            if(locationName.SelectedItem.Equals("Add location"))
+            if (locationName.SelectedItem.Equals("Add location"))
             {
                 MeetingLocation ml = new MeetingLocation(locationNameNew.Text);
                 ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
@@ -337,14 +335,14 @@ namespace PuppetMaster
             }
             else
             {
-                foreach(MeetingLocation ml in meetingLocations)
+                foreach (MeetingLocation ml in meetingLocations)
                 {
-                    if(ml.getName() == locationName.SelectedItem.ToString().Substring(0, locationName.SelectedItem.ToString().LastIndexOf(' ')))
+                    if (ml.getName() == locationName.SelectedItem.ToString().Substring(0, locationName.SelectedItem.ToString().LastIndexOf(' ')))
                     {
                         bool nameUsed = false;
-                        foreach(MeetingRoom mr in ml.GetMeetingRooms())
+                        foreach (MeetingRoom mr in ml.GetMeetingRooms())
                         {
-                            if(mr.GetName() == roomName.Text)
+                            if (mr.GetName() == roomName.Text)
                             {
                                 nameUsed = true;
                             }
@@ -364,7 +362,53 @@ namespace PuppetMaster
             }
             updateMeetingLocationsOnAllServers();
             locationName.Items.Clear();
-            foreach(MeetingLocation ml in meetingLocations)
+            foreach (MeetingLocation ml in meetingLocations)
+            {
+                locationName.Items.Add(ml.getName() + " (" + ml.getRoomsCount() + ")");
+            }
+            locationName.Items.Add("Add location");
+            locationNameNew.Text = "Name of location...";
+            locationName.SelectedIndex = 0;
+        }
+
+        private void addRoom_Script(String location, int capacity, String roomName)
+        {
+            bool locationExists = false;
+            foreach (MeetingLocation ml in meetingLocations)
+            {
+                if (ml.getName() == location)
+                {
+                    locationExists = true;
+                    bool nameUsed = false;
+                    foreach (MeetingRoom mr in ml.GetMeetingRooms())
+                    {
+                        if (mr.GetName() == roomName)
+                        {
+                            nameUsed = true;
+                        }
+                    }
+                    if (!nameUsed)
+                    {
+                        ml.addRoom(new MeetingRoom(roomName, capacity));
+                        labelRoomAdd.Text = "Room \"" + roomName + "\" successfully added to the " + ml.getName() + " location";
+                    }
+                    else
+                    {
+                        labelRoomAdd.Text = "Error: Room with name \"" + roomName + "\" already exists in " + ml.getName() + " location";
+                        return;
+                    }
+                }
+            }
+            if (!locationExists)
+            {
+                MeetingLocation ml = new MeetingLocation(location);
+                ml.addRoom(new MeetingRoom(roomName, capacity));
+                meetingLocations.Add(ml);
+                labelRoomAdd.Text = "Room \"" + roomName + "\" successfully added to the " + ml.getName() + " location";
+            }
+            updateMeetingLocationsOnAllServers();
+            locationName.Items.Clear();
+            foreach (MeetingLocation ml in meetingLocations)
             {
                 locationName.Items.Add(ml.getName() + " (" + ml.getRoomsCount() + ")");
             }
