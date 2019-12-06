@@ -42,7 +42,7 @@ namespace Server
             sc.addServerToView(serverid, serverurl);
         }
 
-        public void updateLocations(List<MeetingLocation> mls)
+        public void updateLocations(String mls)
         {
             sc.updateLocations(mls);
         }
