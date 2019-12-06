@@ -24,8 +24,6 @@ namespace Client
         private String[] sURLBackup;
         private List<String> localClients;
 
-        public delegate string RemoteAsyncDelegate();
-
         //Usage: put as args: <username> <scriptPath>
 
         public Cliente(String username, String cURL, String sURL, String script)
@@ -65,13 +63,32 @@ namespace Client
             ChannelServices.RegisterChannel(channel, false);
 
             cs = new ClientServ(cli);
-            RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
+
+            //RemotingServices.Marshal(cs, "cc", typeof(ClientServ));
+
+            RemotingServices.Marshal(cs, myUri.Segments[1], typeof(ClientServ));
+            
 
             server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURL);
 
             List<String> arg = new List<String>();
             arg.Add(cURL);
-            Message mess = server.Response("Register", arg); //it should wait but it should be a task!
+            Message mess = null; // = server.Response("Register", arg); //it should wait but it should be a task!
+
+            try
+            {
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("Register", arg));
+                task.Wait();
+                mess = task.Result;
+            }
+            catch (Exception e)
+            {
+                //Should we give here another server for the Client to connect?
+                Console.WriteLine("The server you tried to connect unfortunately is not available");
+                Console.WriteLine("Please close window and try to connect to another server adress");
+                Console.ReadLine();
+            }
+
             sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 
@@ -355,11 +372,18 @@ namespace Client
                 args.Add(sURL);
                 this.sURL = sURLBackup[index];
                 server = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), sURLBackup[index]);
-                server.Response("RemoveServerFromView", args).getMessage();
+                //server.Response("RemoveServerFromView", args).getMessage();
+
+                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("RemoveServerFromView", args));
+                task.Wait();
 
                 List<String> arg = new List<String>();
                 arg.Add(cURL);
-                Message mess = server.Response("Register", arg); //should we count when the server is frozen here
+                Message mess; // = server.Response("Register", arg);
+
+                task = Task<Message>.Factory.StartNew(() => server.Response("Register", arg)); // should we send an error here ?
+                task.Wait();
+                mess = task.Result;
 
                 sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
                 Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
@@ -402,7 +426,12 @@ namespace Client
 
         public void updateLocalClients()
         {
-            localClients = (List<String>)server.Response("getClientURLs", null).getObj();
+            //TODO what is this server crashes or wtv
+            //localClients = (List<String>)server.Response("getClientURLs", null).getObj();
+            Task<object> task = Task<object>.Factory.StartNew(() => server.Response("getClientURLs", null).getObj()); // should we send an error here ?
+            task.Wait();
+            localClients = (List<String>)task.Result;
+
         }
 
         private ISchedulingServer findOriginServer(string meetingTopic){
@@ -410,8 +439,12 @@ namespace Client
             ISchedulingServer result = null;
             List<string> auxArgs = new List<string>();
             auxArgs.Add(meetingTopic);
-            Message urlMess = server.Response("GetMeetingProposalURL", auxArgs);
-            if(urlMess.getSucess()){
+            Message urlMess; // = server.Response("GetMeetingProposalURL", auxArgs); //TODO
+            Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetMeetingProposalURL", auxArgs));
+            task.Wait();
+            urlMess = task.Result;
+
+            if (urlMess.getSucess()){
                 result = (ISchedulingServer)Activator.GetObject(typeof(ISchedulingServer), (string)urlMess.getObj());
             } else {
                 Console.WriteLine(urlMess.getMessage());

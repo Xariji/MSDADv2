@@ -59,7 +59,6 @@ namespace PuppetMaster
             int maxFaults = Int32.Parse(addMaxFaults.Text);
             int minDelay = Int32.Parse(addMinDelay.Text);
             int maxDelay = Int32.Parse(addMaxDelay.Text);
-
             addServer(serverID, URL, maxFaults, minDelay, maxDelay);
         }
 
@@ -68,6 +67,7 @@ namespace PuppetMaster
             PCSService pCs;
             Uri myUri = new Uri(URL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
+            Task task;
 
 
 
@@ -94,7 +94,8 @@ namespace PuppetMaster
             else 
             {
                 pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
-                pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay);
+                task = Task.Factory.StartNew(() => pCs.createServerProcess(serverID, URL, maxFaults, minDelay, maxDelay));
+                task.Wait();
             }
             String psURLHost = myUri.Host;
             int psURLPort = myUri.Port + 1000;
@@ -102,7 +103,8 @@ namespace PuppetMaster
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             foreach(KeyValuePair<String, String> server in urlServers)
             {
-                ps.initializeView(server.Key, server.Value);
+                task = Task.Factory.StartNew(() => ps.initializeView(server.Key, server.Value));
+                task.Wait();
             }
             urlServers.Add(serverID, URL);
 
@@ -116,7 +118,8 @@ namespace PuppetMaster
                 con = con.Remove(con.Length - 1);
                 ps.updateLocations(con);
             }
-            ps.addServerToView(serverID, URL);
+            task = Task.Factory.StartNew(() => ps.addServerToView(serverID, URL));
+            task.Wait();
 
             serverNo++;
             addServerId.Text = "server" + serverNo.ToString().PadLeft(2, '0');
@@ -125,9 +128,9 @@ namespace PuppetMaster
 
         private void addClient_Click(object sender, EventArgs e)
         {
-            String userName = username.Text;
-            String cURL = clientURL.Text;
-            String sURL = serverURL.Text;
+            string userName = username.Text;
+            string cURL = clientURL.Text;
+            string sURL = serverURL.Text;
 
             addCli(userName, cURL, sURL);
         }
@@ -136,7 +139,7 @@ namespace PuppetMaster
             PCSService pCs;
             Uri myUri = new Uri(cURL);
             IPAddress[] hostIPs = Dns.GetHostAddresses(myUri.Host);
-
+            Task task;
 
 
             // get local IP addresses
@@ -149,6 +152,7 @@ namespace PuppetMaster
                 Process process;
                 if(scriptPath != "")
                 {
+                    Console.WriteLine("pipocas");
                     process = new Process
                     {
                         StartInfo = new ProcessStartInfo
@@ -178,7 +182,8 @@ namespace PuppetMaster
             else // its not local
             {
                 pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000/pcs");
-                pCs.createClientProcess(userName, cURL, sURL, scriptPath);
+                task = Task.Factory.StartNew(() => pCs.createClientProcess(userName, cURL, sURL, scriptPath));
+                task.Wait();
             }
 
             urlClients.Add(userName, cURL);
@@ -225,7 +230,8 @@ namespace PuppetMaster
 
                 Uri myUri = new Uri(sURL);
                 PCSService pCs = (PCSService)Activator.GetObject(typeof(PCSService), myUri.Scheme + Uri.SchemeDelimiter + myUri.Host + ":10000");
-                pCs.crashServer(serverID);
+                Task task = Task.Factory.StartNew(() => pCs.crashServer(serverID));
+                task.Wait();
             }
         }
         
@@ -245,7 +251,8 @@ namespace PuppetMaster
             int psURLPort = myUri.Port + 1000;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-            ps.freeze();
+            Task task = Task.Factory.StartNew(() => ps.freeze());
+            task.Wait();
         }
 
         private void getStatus_Click(object sender, EventArgs e)
@@ -262,7 +269,8 @@ namespace PuppetMaster
                 String psURLHost = myUri.Host;
                 int psURLPort = myUri.Port + 1000;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-                ps.status();
+                Task task = Task.Factory.StartNew(() => ps.status());
+                task.Wait();
             }
         }
         
@@ -284,7 +292,8 @@ namespace PuppetMaster
             int psURLPort = myUri.Port + 1000;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
-            ps.unfreeze();
+            Task task = Task.Factory.StartNew(() => ps.unfreeze());
+            task.Wait();
         }
 
         private void locationNameNew_Enter(object sender, EventArgs e)
@@ -305,7 +314,7 @@ namespace PuppetMaster
 
         private void locationName_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if(locationName.SelectedItem == "Add location")
+            if (locationName.SelectedItem.Equals("Add location"))
             {
                 locationNameNew.Visible = true;
             } else
@@ -314,9 +323,12 @@ namespace PuppetMaster
             }
         }
 
+        //TODO
         private void addRoom_Click(object sender, EventArgs e)
         {
-            if(locationName.SelectedItem == "Add location")
+          
+        
+            if(locationName.SelectedItem.Equals("Add location"))
             {
                 MeetingLocation ml = new MeetingLocation(locationNameNew.Text);
                 ml.addRoom(new MeetingRoom(roomName.Text, Int32.Parse(roomCapacity.Text)));
@@ -372,13 +384,17 @@ namespace PuppetMaster
             foreach (String url in urlServers.Values)
             {
                 Uri myUri = new Uri(url);
+                Task task;
                 String psURLHost = myUri.Host;
                 int psURLPort = myUri.Port + 1000;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
                 if(con.Length > 1)
                 {
                     String conCorrected = con.Remove(con.Length - 1);
-                    ps.updateLocations(conCorrected);
+
+
+                    task = Task.Factory.StartNew(() => ps.updateLocations(conCorrected));
+                    task.Wait();
                 }
             }
         }
@@ -401,7 +417,7 @@ namespace PuppetMaster
             }
         }
 
-        private void runPuppiScript_Click(object sender, EventArgs e)
+        private void runPuppiS_Click(object sender, EventArgs e)
         {
             if (!puppiScript.Equals(""))
             {
@@ -414,7 +430,6 @@ namespace PuppetMaster
                     ProcessScriptLine(command);
                 }
             }
-            
         }
 
         //TODO TEST
@@ -426,15 +441,21 @@ namespace PuppetMaster
 
             switch (commandArgs[0].ToLower())
             {
-               
-                case "addroom":        
+                case "addroom": //TODO   
                     break;
                 case "server":
                     addServer(commandArgs[1], commandArgs[2], Int32.Parse(commandArgs[3]), Int32.Parse(commandArgs[4])
                         , Int32.Parse(commandArgs[5]));
                     break;
                 case "client":
+                    if(commandArgs.Length > 4) //TODO does this workx?
+                    {
+                        scriptPath = commandArgs[4];
+                        selectScript.Text = scriptPath.Split('\\').Last();
+
+                    }
                     addCli(commandArgs[1], commandArgs[2], commandArgs[3]);
+
                     break;
                 case "status":
                     getStat();

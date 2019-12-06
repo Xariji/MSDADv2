@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Runtime.Remoting;
-
+using System.Threading.Tasks;
 
 namespace Server
 {
@@ -15,6 +15,13 @@ namespace Server
         List<MeetingProposal>[] meetingProposalsBackup;
         List<MeetingLocation> meetingLocations;
         List<IClient> clientsList;
+
+        //Handle closes
+        Dictionary<int , string> closes = new Dictionary<int, string>();
+        private int request = 0;
+        private int seq = 0;
+        private static int timeout = 5000;
+
 
         int currMPId;
         SchedulingServer server;
@@ -199,19 +206,23 @@ namespace Server
         {
             if (mp.getMPTopic() == meetingTopic)
             {
+                Monitor.Enter(mp);
                 if (mp.canJoin(user))
                 {
                     mp.addMeetingRec(user, slotsList);
                     user.addActiveMP(mp);
                     Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
                     updateBackupProposals();
-                }
+                    
+                    }
                 else
                 {
                     Console.WriteLine("User " + user.getName() + " failed joining meeting " + meetingTopic + ". Meeting is restricted.");
                 }
-                //ID of MeetingProposal found: return 1
-                ic.setUser(user);
+                Monitor.Pulse(mp);
+                Monitor.Exit(mp);
+                    //ID of MeetingProposal found: return 1
+                    ic.setUser(user);
                 return new Message(mp.canJoin(user), 1, "");
             }
         }
@@ -236,7 +247,8 @@ namespace Server
         {
             if (mp.getMPTopic() == meetingTopic)
             {
-                if (mp.getStatus() == MeetingProposal.Status.Open)
+                    Monitor.Enter(mp);
+                    if (mp.getStatus() == MeetingProposal.Status.Open)
                 {
                     Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
                     user.removeMyMP(mp);
@@ -254,6 +266,8 @@ namespace Server
                         Console.WriteLine(dm.Item2);
                         ic.setUser(user);
                         updateBackupProposals();
+                        Monitor.Pulse(mp);
+                        Monitor.Exit(mp);
                         return new Message(true, dm.Item2, "Meeting closed successfully.");
                     }
                     else
@@ -261,10 +275,24 @@ namespace Server
                         mp.setStatus(MeetingProposal.Status.Cancelled);
                         Console.WriteLine("---Meeting cancelled.");
                         ic.setUser(user);
+                        
                         return new Message(true, null, "Meeting cancelled.");
                     }
                 }
-            }
+                else if (mp.getStatus() == MeetingProposal.Status.Closed)
+                    {
+                        Monitor.Pulse(mp);
+                        Monitor.Exit(mp);
+
+                        return new Message(true, null, "Meeting already closed.");
+                    }
+                else
+                {
+                        Monitor.Pulse(mp);
+                        Monitor.Exit(mp);
+                        return new Message(true, null, "Meeting cancelled.");
+                    }
+                }
         }
         ic.setUser(user);
 
@@ -570,7 +598,7 @@ namespace Server
         }
         else if (request == "CloseMeetingProposal") // close
         {
-            mess = CloseMeetingProposal(args[0], args[1]);
+            mess = closeRequest(args[0], args[1]); //CloseMeetingProposal(args[0], args[1]);        
         }
         else if (request == "AddMeetingProposal") //create
         {
@@ -949,5 +977,92 @@ namespace Server
         public List<MeetingProposal> getServerMeetingProposals(){
             return meetingProposals;
         }
+
+        public Message closeRequest(string topic, string username)
+        {
+            string primary = server.getView().Values[0];
+            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary); //TODO we need to check the primary
+            Message mess = serv.sequence(server.getURL(), topic, username);
+            return mess;
+        }
+
+        public Message sequence(string url, string topic, string username)
+        {
+            Message mess = null;
+            seq++;
+            closes.Add(seq , url + " " + topic + " " + username);
+            Monitor.Enter(request);
+            closes.TryGetValue(request, out string str);
+
+            string URL = str.Split(' ')[0];
+
+            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), URL);
+
+            Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(topic, username));
+            bool done = task.Wait(timeout);
+
+            if (done)
+            {
+                    mess = task.Result;   
+            }
+
+            else 
+            { 
+                mess = new Message(false, null, "Server to close timedout abort operation");
+            }
+
+            request = request + 1;
+            Monitor.Pulse(request);
+            Monitor.Exit(request);
+
+            return mess;
+        }
+
+
+        /*A process wishing to TO-multicast a message m to group g attaches a unique identifier id(m) to it.
+        The messages for g are sent to the sequencer for g, sequencer(g), as well as to the
+        members of g. (The sequencer may be chosen to be a member of g.) 
+        The process
+        sequencer(g) maintains a group-specific sequence number sg, which it uses to assign
+        increasing and consecutive sequence numbers to the messages that it B-delivers.
+        It announces the sequence numbers by B-multicasting order messages to g(see Figure
+        15.13 for the details).
+        A message will remain in the hold-back queue indefinitely until it can be TO delivered according 
+        to the corresponding sequence number.Since the sequence numbers
+        are well defined (by the sequencer), the criterion for total ordering is met.
+        Furthermore,if the processes use a FIFO-ordered variant of B-multicast, then the totally ordered
+        multicast is also causally ordered. We leave the reader to show this.
+                public string closeRequest(string id)
+                {
+                    ServerCli serv; // we gonna make this the primary server;
+                    foreach(String url in server.getView().Values)
+                    {
+                        serv = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
+                        serv.receiveSeq(id);
+                    }
+                    serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
+                    serv.sequencer(id);
+                    return null;
+                }
+                public string receiveSeq(String id)
+                {
+                    closes.Add(id);
+                    return null;
+                }
+                public string shouldGo(String id, int S)
+                {
+                    if(S == request)
+                    {
+                    }
+                    return null;
+                }
+                public bool sequencer(string id)
+                {
+                    seq = seq + 1;
+                    return false;
+                }
+                */
+
+
     }
-    }
+}
