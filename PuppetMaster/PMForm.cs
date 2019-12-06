@@ -162,6 +162,8 @@ namespace PuppetMaster
 
                         }
                     };
+
+                    scriptPath = "";
                 }
                 else
                 {
@@ -485,18 +487,17 @@ namespace PuppetMaster
 
             switch (commandArgs[0].ToLower())
             {
-                case "addroom": //TODO   
+                case "addroom":
+                    addRoom_Script(commandArgs[1], Int32.Parse(commandArgs[2]), commandArgs[3]);
                     break;
                 case "server":
                     addServer(commandArgs[1], commandArgs[2], Int32.Parse(commandArgs[3]), Int32.Parse(commandArgs[4])
                         , Int32.Parse(commandArgs[5]));
                     break;
                 case "client":
-                    if(commandArgs.Length > 4) //TODO does this workx?
+                    if(commandArgs.Length == 5) 
                     {
                         scriptPath = commandArgs[4];
-                        selectScript.Text = scriptPath.Split('\\').Last();
-
                     }
                     addCli(commandArgs[1], commandArgs[2], commandArgs[3]);
 
