@@ -110,9 +110,22 @@ namespace Client
                     string[] commandList = script.Split(
                         new[] { Environment.NewLine },
                         StringSplitOptions.None);
-                    foreach (string command in commandList)
+                    Console.WriteLine("If you wish the script to be run stpe-by-step write YES");
+                    String s = Console.ReadLine();
+                    if (s.Equals("YES")){
+                        foreach (string command in commandList)
+                        {
+                            cli.ProcessConsoleLine(command);
+                            Console.WriteLine("Press Enter to execute next line");
+                            Console.ReadLine();
+                        }
+                    }
+                    else
                     {
-                        cli.ProcessConsoleLine(command);
+                        foreach (string command in commandList)
+                        {
+                            cli.ProcessConsoleLine(command);
+                        }
                     }
                 }
 

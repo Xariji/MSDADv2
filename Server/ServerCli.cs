@@ -18,9 +18,9 @@ namespace Server
 
         //Handle closes
         Dictionary<int , string> closes = new Dictionary<int, string>();
-        private int request = 0;
+        private int request = 1;
         private int seq = 0;
-        private static int timeout = 5000;
+        private static int timeout = 10000;
 
 
         int currMPId;
@@ -981,39 +981,62 @@ namespace Server
         public Message closeRequest(string topic, string username)
         {
             string primary = server.getView().Values[0];
-            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary); //TODO we need to check the primary
-            Message mess = serv.sequence(server.getURL(), topic, username);
+            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
+
+            Message mess;// = serv.sequence(server.getURL(), topic, username);
+
+            Task<Message> task = Task<Message>.Factory.StartNew(() => serv.sequence(server.getURL(), topic, username));
+            bool done = task.Wait(timeout);
+            if (done)
+            {
+                mess = task.Result;
+            }
+            else
+            {
+                mess = new Message(false, null, "Server to close timedout abort operation");
+            }
             return mess;
         }
 
         public Message sequence(string url, string topic, string username)
         {
             Message mess = null;
-            seq++;
-            closes.Add(seq , url + " " + topic + " " + username);
-            Monitor.Enter(request);
-            closes.TryGetValue(request, out string str);
 
-            string URL = str.Split(' ')[0];
-
-            ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), URL);
-
-            Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(topic, username));
-            bool done = task.Wait(timeout);
-
-            if (done)
+            if(closes.ContainsValue(url + " " + topic + " " + username))
             {
-                    mess = task.Result;   
+                seq++;
+                closes.Add(seq, url + " " + topic + " " + username);
+
+                Monitor.Enter(request);
+                closes.TryGetValue(request, out string str);
+
+                string[] data = str.Split(' ');
+
+                ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
+
+                Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
+                bool done = task.Wait(timeout);
+
+                if (done)
+                {
+                    mess = task.Result;
+                }
+
+                else
+                {
+                    mess = new Message(false, null, "Server to close timedout abort operation");
+                }
+
+                request++;
+                Monitor.Pulse(request);
+                Monitor.Exit(request);
+            }
+            else
+            {
+                mess = new Message(false, null, "Duplicated request");
+
             }
 
-            else 
-            { 
-                mess = new Message(false, null, "Server to close timedout abort operation");
-            }
-
-            request = request + 1;
-            Monitor.Pulse(request);
-            Monitor.Exit(request);
 
             return mess;
         }
