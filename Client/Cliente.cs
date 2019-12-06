@@ -15,7 +15,7 @@ namespace Client
         private static ISchedulingServer server;
         private static ClientServ cs;
 
-        private static int timeout = 5000;
+        private static int timeout = 20000;
 
         private String username;
         private String cURL;
