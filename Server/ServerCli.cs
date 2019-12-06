@@ -212,17 +212,16 @@ namespace Server
                     mp.addMeetingRec(user, slotsList);
                     user.addActiveMP(mp);
                     Console.WriteLine("User " + user.getName() + " joined meeting " + meetingTopic);
-                    updateBackupProposals();
-                    
-                    }
+                    updateBackupProposals(); 
+                }
                 else
                 {
                     Console.WriteLine("User " + user.getName() + " failed joining meeting " + meetingTopic + ". Meeting is restricted.");
                 }
                 Monitor.Pulse(mp);
                 Monitor.Exit(mp);
-                    //ID of MeetingProposal found: return 1
-                    ic.setUser(user);
+                //ID of MeetingProposal found: return 1
+                ic.setUser(user);
                 return new Message(mp.canJoin(user), 1, "");
             }
         }
@@ -237,62 +236,65 @@ namespace Server
         meetingLocations.Add(ml);
     }
 
-    private Message CloseMeetingProposal(String meetingTopic, string username)
+    public Message CloseMeetingProposal(String meetingTopic, string username)
     {
-                Console.WriteLine("Vou fechar a minha");
         IClient ic = findClient(username);
         User user = ic.getUser();
-                            Console.WriteLine("Vou fechar a minha");
         foreach (MeetingProposal mp in meetingProposals)
         {
             if (mp.getMPTopic() == meetingTopic)
             {
-                    Monitor.Enter(mp);
-                    if (mp.getStatus() == MeetingProposal.Status.Open)
+                Monitor.Enter(mp);
+                if (mp.getCoordinator().getName().Equals(user.getName()))
                 {
-                    Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
-                    user.removeMyMP(mp);
-                    Console.WriteLine("---Meeting removed from user's myMP list.");
-                    foreach (IClient ict in clientsList)
+                    if (mp.getStatus() == MeetingProposal.Status.Open)
                     {
-                        ict.getUser().removeActiveMP(mp);
+                        Console.WriteLine("User " + user.getName() + " prompts to close meeting " + meetingTopic);
+                        user.removeMyMP(mp);
+                        Console.WriteLine("---Meeting removed from user's myMP list.");
+                        Tuple<Boolean, String> dm = DecideMeeting(mp);
+                        if (dm.Item1)
+                        {
+                            mp.setStatus(MeetingProposal.Status.Closed);
+                            Console.WriteLine("---Meeting closed successfully.");
+                            ic.setUser(user);
+                            updateBackupProposals();
+                            Monitor.Pulse(mp);
+                            Monitor.Exit(mp);
+                            return new Message(true, dm.Item2, "Meeting closed successfully.");
+                        }
+                        else
+                        {
+                            mp.setStatus(MeetingProposal.Status.Cancelled);
+                            Console.WriteLine("---Meeting cancelled.");
+                            ic.setUser(user);
+                            Monitor.Pulse(mp);
+                            Monitor.Exit(mp);
+                            return new Message(true, null, "Meeting cancelled.");
+                        }
                     }
-                    Console.WriteLine("---Meeting removed from all users activeMP list.");
-                    Tuple<Boolean, String> dm = DecideMeeting(mp);
-                    if (dm.Item1)
-                    {
-                        mp.setStatus(MeetingProposal.Status.Closed);
-                        Console.WriteLine("---Meeting closed successfully.");
-                        Console.WriteLine(dm.Item2);
-                        ic.setUser(user);
-                        updateBackupProposals();
-                        Monitor.Pulse(mp);
-                        Monitor.Exit(mp);
-                        return new Message(true, dm.Item2, "Meeting closed successfully.");
-                    }
-                    else
-                    {
-                        mp.setStatus(MeetingProposal.Status.Cancelled);
-                        Console.WriteLine("---Meeting cancelled.");
-                        ic.setUser(user);
-                        
-                        return new Message(true, null, "Meeting cancelled.");
-                    }
-                }
-                else if (mp.getStatus() == MeetingProposal.Status.Closed)
+                    else if (mp.getStatus() == MeetingProposal.Status.Closed)
                     {
                         Monitor.Pulse(mp);
                         Monitor.Exit(mp);
 
                         return new Message(true, null, "Meeting already closed.");
                     }
-                else
-                {
+                    else
+                    {
                         Monitor.Pulse(mp);
                         Monitor.Exit(mp);
                         return new Message(true, null, "Meeting cancelled.");
                     }
                 }
+                else
+                {
+                    Monitor.Pulse(mp);
+                    Monitor.Exit(mp);
+                    return new Message(true, null, "User not allowed to close meeting.");
+                }
+                
+            }
         }
         ic.setUser(user);
 
@@ -304,7 +306,7 @@ namespace Server
 
     // with this in the meeting locations we have to check if the rooms is gonna be occupied for the day
     // and if its not we have to record the unavailability
-    private Tuple<Boolean, String> DecideMeeting(MeetingProposal mp)
+    public Tuple<Boolean, String> DecideMeeting(MeetingProposal mp)
     {
         //Identify the most popular slot
         List<Tuple<Slot, int>> popularSlots = new List<Tuple<Slot, int>>();
@@ -359,7 +361,7 @@ namespace Server
                                     Console.WriteLine("User " + usersToExclude[i].getName() + " excluded from meeting.");
                                 }
                             }
-                            
+
                             //Book room on all servers
                              bookRoom(mr, time);
                              
@@ -380,7 +382,7 @@ namespace Server
         return Tuple.Create(false, "");
     }
 
-    private void bookRoom(MeetingRoom mr, string time)
+    public void bookRoom(MeetingRoom mr, string time)
     {
         lock (meetingLocations)
         {
@@ -401,11 +403,11 @@ namespace Server
                     }
                 }
             }
-            if (!server.getBackupServer().Equals(server.getURL()))
-            {
-                ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
-                bscli.bookRoom(mr, time);
-            }
+        }
+        if (!server.getBackupServer().Equals(server.getURL()))
+        {
+            ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
+            bscli.bookRoom(mr, time);
         }
     }
 
@@ -497,7 +499,6 @@ namespace Server
 
     private Message GetServerId()
     {
-        Console.WriteLine("toma la o serverID");
         return new Message(true, server.GetId(), "");
     }
 
@@ -622,8 +623,6 @@ namespace Server
         else if (request == "AddUserToProposal") //join 
         {
             string[] slots = args[2].Split(' ');
-                foreach (String s in slots) Console.WriteLine(s);
-            Console.WriteLine("HERRRRREEEEEEEEEEEEEEEEE");
             mess = AddUserToProposal(args[0], args[1], slots); 
         }
         else if (request == "GetServerId") //get serverID 
@@ -719,29 +718,21 @@ namespace Server
 
                             if (!server.getBackupServer()[0].Equals(server.getURL()))
                             {
-                                Console.WriteLine("Checkpoint 1");
                                 tryConnectToBackup(0, serverurls);
 
                                 void tryConnectToBackup(int indexBackupUpdate, List<String> args)
                                 {
                                     try
                                     {
-                                        Console.WriteLine("Checkpoint 2");
                                         ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[indexBackupUpdate]);
-                                        Console.WriteLine("Checkpoint 3");
                                         bscli.removeServerFromView(args);
-                                        Console.WriteLine("Checkpoint 4");
                                     }
                                     catch (Exception e)
                                     {
-                                        Console.WriteLine("Checkpoint 6");
                                         if (indexBackupUpdate + 1 < server.getBackupServer().Length)
                                         {
-                                            Console.WriteLine("Checkpoint 7");
                                             args.Add(server.getBackupServer()[indexBackupUpdate]);
-                                            Console.WriteLine("Checkpoint 8");
                                             tryConnectToBackup(indexBackupUpdate + 1, args);
-                                            Console.WriteLine("Checkpoint 9");
                                         }
                                         else
                                         {
@@ -1006,7 +997,17 @@ namespace Server
             }
             else
             {
-                mess = sequence(server.getURL(), topic, username);
+                Task<Message> task = Task<Message>.Factory.StartNew(() => sequence(server.getURL(), topic, username));
+                bool done = task.Wait(timeout);
+
+                if (done)
+                {
+                    mess = task.Result;
+                }
+                else
+                {
+                    mess = new Message(false, null, "Close not successfull");
+                }
             }
            
             return mess;
@@ -1021,47 +1022,55 @@ namespace Server
                 seq++;
                 closes.Add(seq, url + " " + topic + " " + username);
 
-                Monitor.Enter(request); //lock
-
-                closes.TryGetValue(request, out string str);
-                Console.WriteLine("sequence 3");
-                string[] data = str.Split(' ');
-
-
-                if (!data[0].Equals(server.getURL()))
+                Monitor.Enter(server); //lock
+                try
                 {
-                    ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
-                    Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
-                    bool done = task.Wait(timeout);
+                    closes.TryGetValue(request, out string str);
+                    string[] data = str.Split(' ');
 
-                    if (done)
+
+                    if (!data[0].Equals(server.getURL()))
                     {
-                        mess = task.Result;
-                    }
+                        ServerCli serv = (ServerCli)Activator.GetObject(typeof(ServerCli), data[0]);
+                        Task<Message> task = Task<Message>.Factory.StartNew(() => serv.CloseMeetingProposal(data[1], data[2]));
+                        bool done = task.Wait(timeout);
 
+                        if (done)
+                        {
+                            mess = task.Result;
+                        }
+                        else
+                        {
+                            mess = new Message(false, null, "Server to close timed out abort operation");
+                        }
+                    }
                     else
                     {
-                        mess = new Message(false, null, "Server to close timed out abort operation");
+                        Task<Message> task = Task<Message>.Factory.StartNew(() => CloseMeetingProposal(data[1], data[2]));
+                        bool done = task.Wait(timeout);
+
+                        if(done)
+                        {
+                            mess = task.Result;
+                        }
+                        else
+                        {
+                            mess = new Message(false, null, "Server to close timed out abort operation");
+                        }
                     }
-                }
 
-                else
+                    request++;
+                }
+                finally
                 {
-                    mess = CloseMeetingProposal(data[1], data[2]);
-
+                    Monitor.Pulse(server);
+                    Monitor.Exit(server);
                 }
-                
-                request++;
-                Monitor.Pulse(request);
-                Monitor.Exit(request);
             }
             else
             {
-                Console.WriteLine("sequence 8");
                 mess = new Message(false, null, "Duplicated request");
-
             }
-
 
             return mess;
         }

@@ -77,5 +77,10 @@ namespace Client
         {
             this.client.connectToBackup(index, list);
         }
+
+        public void setLocalClients(List<String> localClients)
+        {
+            this.client.setLocalClients(localClients);
+        }
     }
 }

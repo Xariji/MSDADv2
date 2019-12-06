@@ -47,7 +47,8 @@ namespace Client
             String username = vs[0];
             String cURL = vs[1];
             String sURL = vs[2];
-            String script = "" ; 
+            String script = "" ;
+
             String[] sURLBackup;
             List<String> localClients = new List<String>();
 
@@ -90,6 +91,8 @@ namespace Client
             }
 
             sURLBackup = Array.ConvertAll((object[])mess.getObj(), Convert.ToString);
+            cs.setBackupServerURL(sURLBackup);
+            cs.setLocalClients(localClients);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
 
             if (args.Length == 1 || args.Length == 2)
@@ -217,7 +220,6 @@ namespace Client
                     return;
                 }
             }
-            
             catch (Exception e) // we should specify the exceptions we get ( Is this the conection Exception ? )
             {
                 if (connectToBackup(0, new List<string>()))
@@ -247,10 +249,7 @@ namespace Client
         }
 
         public void receiveProposal(MeetingProposal mp){
-           Console.WriteLine("Receive proposal");
-
             Boolean found = false;
-            Console.WriteLine(cs.getUser().getName());
 
             //validate if the client already as the proposal
             foreach(MeetingProposal m in cs.getUser().getMyMP()){
@@ -344,7 +343,7 @@ namespace Client
                 if (taskCompleted)
                 {
                     output = task.Result;
-                    List<String> messages = (List<String>)output.getObj();
+                    Console.WriteLine((String)output.getMessage());
                 }
             }
             catch (Exception e)
@@ -412,6 +411,7 @@ namespace Client
             }
             catch(Exception e)
             {
+                Console.WriteLine(e);
                 try
                 {
                     if(index + 1 < sURLBackup.Length)
@@ -430,6 +430,11 @@ namespace Client
                 }
             }
             return _return;
+        }
+
+        public void setLocalClients(List<String> localClients)
+        {
+            this.localClients = localClients;
         }
 
         public void updateLocalClients()
