@@ -52,12 +52,12 @@ namespace Client
             return client.getURL();
         }
 
-        public void shareProposal(MeetingProposal mp){
-            this.client.ShareProposal(mp);
+        public void shareProposal(MeetingProposal mp, List<string> list, string serv){
+            this.client.ShareProposal(mp, list, serv);
         }
 
-        public void receiveProposal(MeetingProposal mp){
-            this.client.receiveProposal(mp);
+        public void receiveProposal(MeetingProposal mp, List<string> list, string serv){
+            this.client.receiveProposal(mp, list, serv);
         }
 
         public void status()
@@ -82,5 +82,10 @@ namespace Client
         {
             this.client.setLocalClients(localClients);
         }
+
+        public List<MeetingProposal> getMeetingProposals()
+        {
+            return this.client.getMeetingProposals();
+        } 
     }
 }
