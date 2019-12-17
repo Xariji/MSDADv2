@@ -93,7 +93,7 @@ namespace Client
             cs.setLocalClients(localClients);
             Console.WriteLine("Cliente " + new Uri(cURL).Port + " (" + username + ") " + mess.getMessage());
             //check if the client has to be updated
-            updateClientState();
+            cs.updateClientState();
 
             if (args.Length == 1 || args.Length == 2)
             {
@@ -121,13 +121,6 @@ namespace Client
                             Console.WriteLine("Press Enter to execute the line:");
                             Console.WriteLine(command);
                             Console.ReadLine();
-                            cli.ProcessConsoleLine(command);
-                        }
-                    }
-                    else
-                    {
-                        foreach (string command in commandList)
-                        {
                             cli.ProcessConsoleLine(command);
                         }
                     }
@@ -243,7 +236,20 @@ namespace Client
             if(!serv.Equals(this.sURL)){
                  try
                  {
-                    Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                    Task<Message> task = null;
+                    try
+                    {
+                        task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                    }
+                    catch (Exception e)
+                    {
+                        if (connectToBackup(0, new List<string>()))
+                        {
+                            task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                        }
+                        return;
+                    }
+                    
                     bool taskCompleted = task.Wait(timeout);
 
                     if (taskCompleted)
@@ -346,9 +352,22 @@ namespace Client
             }
 
             //look for the server that created that meeting proposal
-            ISchedulingServer otherServer = findOriginServer(meetingTopic);
-
-            List<String> args = new List<String>();
+            ISchedulingServer otherServer = null;
+            try
+            {
+                otherServer = findOriginServer(meetingTopic);
+            }
+            catch(Exception e)
+            {
+                if (connectToBackup(0, new List<string>()))
+                {
+                    otherServer = findOriginServer(meetingTopic);
+                }
+                return;
+            }
+            if (otherServer != null)
+            {
+                List<String> args = new List<String>();
             args.Add(meetingTopic);
             args.Add(cs.getUser().getName());
             args.Add(string.Join(" ", slots));
@@ -392,36 +411,59 @@ namespace Client
                 return;
             }
             Console.WriteLine("Request: Timeout, abort request.");
+            }
         }
 
         private void CloseProposal(String meetingTopic)
         {
 
             //look for the server that created that meeting proposal
-            ISchedulingServer otherServer = findOriginServer(meetingTopic);
-
-            List<String> args = new List<String>();
-            args.Add(meetingTopic);
-            args.Add(cs.getUser().getName());
-            Message output;
+            ISchedulingServer otherServer = null;
             try
             {
-                Task<Message> task = Task<Message>.Factory.StartNew(() => otherServer.Response("CloseMeetingProposal", args));
-                bool taskCompleted = task.Wait(timeout);
 
-                if (taskCompleted)
-                {
-                    output = task.Result;
-                    Console.WriteLine((String)output.getMessage());
-                }
+                otherServer = findOriginServer(meetingTopic);
+
+             
             }
             catch (Exception e)
             {
                 if (connectToBackup(0, new List<string>()))
                 {
-                    CloseProposal(meetingTopic);
+                    otherServer = findOriginServer(meetingTopic);
                 }
                 return;
+            }
+
+            if (otherServer != null)
+            {
+
+                List<String> args = new List<String>();
+                args.Add(meetingTopic);
+                args.Add(cs.getUser().getName());
+                Message output;
+                try
+                {
+                    Task<Message> task = Task<Message>.Factory.StartNew(() => otherServer.Response("CloseMeetingProposal", args));
+                    bool taskCompleted = task.Wait(timeout);
+
+                    if (taskCompleted)
+                    {
+                        output = task.Result;
+                        Console.WriteLine((String)output.getMessage());
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Bolas 1");
+                    Console.WriteLine(e);
+                    Console.WriteLine("###################################################################");
+                    if (connectToBackup(0, new List<string>()))
+                    {
+                        CloseProposal(meetingTopic);
+                    }
+                    return;
+                }
             }
 
         }
@@ -508,7 +550,19 @@ namespace Client
         {
             //TODO what is this server crashes or wtv
             //localClients = (List<String>)server.Response("getClientURLs", null).getObj();
-            Task<object> task = Task<object>.Factory.StartNew(() => server.Response("getClientURLs", null).getObj()); // should we send an error here ?
+            Task<object> task = null;
+            try
+            {
+                task = Task<object>.Factory.StartNew(() => server.Response("getClientURLs", null).getObj()); // should we send an error here ?
+            }
+            catch(Exception e)
+            {
+                if (connectToBackup(0, new List<string>()))
+                {
+                    task = Task<object>.Factory.StartNew(() => server.Response("getClientURLs", null).getObj()); // should we send an error here ?
+                }
+                return;
+            }
             task.Wait();
             localClients = (List<String>)task.Result;
         }
@@ -519,7 +573,19 @@ namespace Client
             List<string> auxArgs = new List<string>();
             auxArgs.Add(meetingTopic);
             Message urlMess; // = server.Response("GetMeetingProposalURL", auxArgs); //TODO
-            Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetMeetingProposalURL", auxArgs));
+            Task<Message> task = null;
+            try
+            {
+                task = Task<Message>.Factory.StartNew(() => server.Response("GetMeetingProposalURL", auxArgs));
+            }
+            catch (Exception e)
+            {
+                if (connectToBackup(0, new List<string>()))
+                {
+                    task = Task<Message>.Factory.StartNew(() => server.Response("GetMeetingProposalURL", auxArgs));
+                }
+                return null;
+            }
             task.Wait();
             urlMess = task.Result;
 
@@ -545,7 +611,7 @@ namespace Client
                     List<MeetingProposal> list = ListProposals();
                     foreach (MeetingProposal proposal in list)
                     {
-                        if(proposal.getStatus().ToString().ToLower().Equals("open")){
+                        if(proposal.getStatus() == MeetingProposal.Status.Open){
                             Console.WriteLine(proposal.ToString());
                         }
                     }
@@ -585,11 +651,24 @@ namespace Client
             }
          }
     
-        public static void updateClientState(){
+        public void updateClientState(){
 
             try
             {
-                Task<Message> task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                Task<Message> task = null;
+                try
+                {
+                    task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                }
+                catch (Exception e)
+                {
+                    if (connectToBackup(0, new List<string>()))
+                    {
+                        task = Task<Message>.Factory.StartNew(() => server.Response("GetSharedClientsList", null));
+                    }
+                    return;
+                }
+                
                 bool taskCompleted = task.Wait(timeout);
 
                 if (taskCompleted)

@@ -87,5 +87,10 @@ namespace Client
         {
             return this.client.getMeetingProposals();
         } 
+
+        public void updateClientState()
+        {
+            client.updateClientState();
+        }
     }
 }

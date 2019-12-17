@@ -54,13 +54,11 @@ namespace Server
             SchedulingServer server = new SchedulingServer(id, URL, maxFaults, minDelay, maxDelay);
             ServerCli mo = new ServerCli(server);
 
-            Console.WriteLine(myUri.Segments[1]);
-
             //RemotingServices.Marshal(mo, "mcm", typeof(ServerCli));
 
             RemotingServices.Marshal(mo, myUri.Segments[1], typeof(ServerCli));
 
-            HttpChannel channel1 = new HttpChannel(myUri.Port+1000);
+            HttpChannel channel1 = new HttpChannel(myUri.Port+200);
             ChannelServices.RegisterChannel(channel1, false);
 
             PuppetServer ps = new PuppetServer(mo); //testing this

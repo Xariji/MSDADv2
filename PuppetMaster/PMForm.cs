@@ -98,7 +98,7 @@ namespace PuppetMaster
                 task.Wait();
             }
             String psURLHost = myUri.Host;
-            int psURLPort = myUri.Port + 1000;
+            int psURLPort = myUri.Port + 200;
             Console.WriteLine("serverID: " + serverID + " URL: " + URL);
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             foreach(KeyValuePair<String, String> server in urlServers)
@@ -250,7 +250,7 @@ namespace PuppetMaster
             Uri myUri = new Uri(url);
 
             String psURLHost = myUri.Host;
-            int psURLPort = myUri.Port + 1000;
+            int psURLPort = myUri.Port + 200;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             Task task = Task.Factory.StartNew(() => ps.freeze());
@@ -269,7 +269,7 @@ namespace PuppetMaster
                 Uri myUri = new Uri(url);
 
                 String psURLHost = myUri.Host;
-                int psURLPort = myUri.Port + 1000;
+                int psURLPort = myUri.Port + 200;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
                 Task task = Task.Factory.StartNew(() => ps.status());
                 task.Wait();
@@ -291,7 +291,7 @@ namespace PuppetMaster
             Uri myUri = new Uri(url);
 
             String psURLHost = myUri.Host;
-            int psURLPort = myUri.Port + 1000;
+            int psURLPort = myUri.Port + 200;
 
             PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
             Task task = Task.Factory.StartNew(() => ps.unfreeze());
@@ -431,7 +431,7 @@ namespace PuppetMaster
                 Uri myUri = new Uri(url);
                 Task task;
                 String psURLHost = myUri.Host;
-                int psURLPort = myUri.Port + 1000;
+                int psURLPort = myUri.Port + 200;
                 PuppetServer ps = (PuppetServer)Activator.GetObject(typeof(PuppetServer), "http://" + psURLHost + ":" + psURLPort + "/ps");
                 if(con.Length > 1)
                 {

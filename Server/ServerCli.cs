@@ -43,11 +43,6 @@ namespace Server
             meetingProposals = new List<MeetingProposal>();
             meetingProposalsBackup = new List<MeetingProposal>[0];
             meetingLocations = new List<MeetingLocation>();
-            MeetingLocation ml = new MeetingLocation("Lisboa");
-            ml.addRoom(new MeetingRoom("Room-C1", 5));
-            meetingLocations.Add(ml);
-            ml = new MeetingLocation("Porto");
-            meetingLocations.Add(ml);
             clientsList = new List<IClient>();
             currMPId = 0;
             this.server = server;
@@ -129,7 +124,7 @@ namespace Server
                     for (int x = 0; x < slots.Length && slotsExists; x++)
                     {
                         string[] slotFormat = slots[x].Split(
-                           new[] { ";" },
+                           new[] { "," },
                            StringSplitOptions.None);
                         slotsExists = false;
                         for (int z = 0; z < meetingLocations.Count && !slotsExists; z++)
@@ -406,8 +401,18 @@ namespace Server
         }
         if (!server.getBackupServer().Equals(server.getURL()))
         {
-            ServerCli bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
-            bscli.bookRoom(mr, time);
+            ServerCli bscli = null;
+            try
+            {
+                bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), server.getBackupServer()[0]);
+                bscli.bookRoom(mr, time);
+            }
+            catch(Exception e)
+            {
+                    Task<Message> task = Task<Message>.Factory.StartNew(() => Response("RemoveServerFromView", new List<String>(){bscli.getsURL() }));
+                    task.Wait();
+            }
+            
         }
     }
 
@@ -481,16 +486,19 @@ namespace Server
                     {                        
                         bscli = (ServerCli)Activator.GetObject(typeof(ServerCli), servURL);
                         cliList = bscli.getClientsList();
-                        foreach(IClient c in cliList){
-                            if(c.getUser().getName().Equals(username)){
-                                result = c;
-                            }
-                        }
+                        
                     }
                     catch (Exception e)
                     {
                     }
-                }
+                    foreach (IClient c in cliList)
+                    {
+                        if (c.getUser().getName().Equals(username))
+                        {
+                            result = c;
+                        }
+                    }
+                    }
             }
         }
 
@@ -641,11 +649,11 @@ namespace Server
         {
             mess = GetMeetingProposalURL(args[0]);
         }
-        else if (request == "getClientURLs")
-        {
-            mess = getClientURLs();
-        }
-        else
+            else if (request == "getClientURLs")
+            {
+                mess = getClientURLs();
+            }
+            else
         {
             mess = new Message(false, null, "Operation not supported by the Server");
         }
@@ -1014,6 +1022,11 @@ namespace Server
             return mess;
         }
 
+        public String getsURL()
+        {
+            return server.getURL();
+        }
+
         public Message sequence(string url, string topic, string username)
         {
             Message mess = null;
@@ -1075,52 +1088,5 @@ namespace Server
 
             return mess;
         }
-
-
-        /*A process wishing to TO-multicast a message m to group g attaches a unique identifier id(m) to it.
-        The messages for g are sent to the sequencer for g, sequencer(g), as well as to the
-        members of g. (The sequencer may be chosen to be a member of g.) 
-        The process
-        sequencer(g) maintains a group-specific sequence number sg, which it uses to assign
-        increasing and consecutive sequence numbers to the messages that it B-delivers.
-        It announces the sequence numbers by B-multicasting order messages to g(see Figure
-        15.13 for the details).
-        A message will remain in the hold-back queue indefinitely until it can be TO delivered according 
-        to the corresponding sequence number.Since the sequence numbers
-        are well defined (by the sequencer), the criterion for total ordering is met.
-        Furthermore,if the processes use a FIFO-ordered variant of B-multicast, then the totally ordered
-        multicast is also causally ordered. We leave the reader to show this.
-                public string closeRequest(string id)
-                {
-                    ServerCli serv; // we gonna make this the primary server;
-                    foreach(String url in server.getView().Values)
-                    {
-                        serv = (ServerCli)Activator.GetObject(typeof(ServerCli), url);
-                        serv.receiveSeq(id);
-                    }
-                    serv = (ServerCli)Activator.GetObject(typeof(ServerCli), primary);
-                    serv.sequencer(id);
-                    return null;
-                }
-                public string receiveSeq(String id)
-                {
-                    closes.Add(id);
-                    return null;
-                }
-                public string shouldGo(String id, int S)
-                {
-                    if(S == request)
-                    {
-                    }
-                    return null;
-                }
-                public bool sequencer(string id)
-                {
-                    seq = seq + 1;
-                    return false;
-                }
-                */
-
-
     }
 }
